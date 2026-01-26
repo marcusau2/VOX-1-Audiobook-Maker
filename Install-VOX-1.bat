@@ -226,39 +226,35 @@ REM ============================================
 echo Creating launchers and guides...
 echo ============================================
 
-REM Create main launcher - RUN VOX-1.bat
-(
-    echo @echo off
-    echo echo ============================================
-    echo echo    VOX-1 Audiobook Maker
-    echo echo ============================================
-    echo echo.
-    echo echo Starting VOX-1...
-    echo echo The app will open in your browser.
-    echo echo.
-    echo echo IMPORTANT: Keep this window open while using VOX-1!
-    echo echo            Closing this window will stop the app.
-    echo echo.
-    echo echo ============================================
-    echo echo.
-    echo cd /d "%%~dp0"
-    echo python310\python.exe app\app.py
-    echo echo.
-    echo echo VOX-1 has stopped.
-    echo pause
-) > "RUN VOX-1.bat"
+REM Create main launcher - RUN-VOX-1.bat (no spaces in filename)
+> "RUN-VOX-1.bat" echo @echo off
+>>"RUN-VOX-1.bat" echo echo ============================================
+>>"RUN-VOX-1.bat" echo echo    VOX-1 Audiobook Maker
+>>"RUN-VOX-1.bat" echo echo ============================================
+>>"RUN-VOX-1.bat" echo echo.
+>>"RUN-VOX-1.bat" echo echo Starting VOX-1...
+>>"RUN-VOX-1.bat" echo echo The app will open in your browser.
+>>"RUN-VOX-1.bat" echo echo.
+>>"RUN-VOX-1.bat" echo echo IMPORTANT: Keep this window open while using VOX-1!
+>>"RUN-VOX-1.bat" echo echo            Closing this window will stop the app.
+>>"RUN-VOX-1.bat" echo echo.
+>>"RUN-VOX-1.bat" echo echo ============================================
+>>"RUN-VOX-1.bat" echo echo.
+>>"RUN-VOX-1.bat" echo cd /d "%%~dp0"
+>>"RUN-VOX-1.bat" echo python310\python.exe app\app.py
+>>"RUN-VOX-1.bat" echo echo.
+>>"RUN-VOX-1.bat" echo echo VOX-1 has stopped.
+>>"RUN-VOX-1.bat" echo pause
 
 REM Create debug launcher
-(
-    echo @echo off
-    echo echo Debug Mode - You will see detailed error messages
-    echo echo.
-    echo cd /d "%%~dp0"
-    echo python310\python.exe app\app.py
-    echo echo.
-    echo echo Press any key to close...
-    echo pause
-) > "Launch-Debug.bat"
+> "Launch-Debug.bat" echo @echo off
+>>"Launch-Debug.bat" echo echo Debug Mode - You will see detailed error messages
+>>"Launch-Debug.bat" echo echo.
+>>"Launch-Debug.bat" echo cd /d "%%~dp0"
+>>"Launch-Debug.bat" echo python310\python.exe app\app.py
+>>"Launch-Debug.bat" echo echo.
+>>"Launch-Debug.bat" echo echo Press any key to close...
+>>"Launch-Debug.bat" echo pause
 
 REM Create START HERE guide
 (
@@ -272,7 +268,7 @@ REM Create START HERE guide
     echo QUICK START:
     echo ==========================================
     echo.
-    echo 1. Double-click: RUN VOX-1.bat
+    echo 1. Double-click: RUN-VOX-1.bat
     echo    ^(The app will open in your browser^)
     echo.
     echo 2. Read the User Guide: USER_GUIDE.txt
@@ -302,7 +298,7 @@ REM Create START HERE guide
     echo FILES IN THIS FOLDER:
     echo ==========================================
     echo.
-    echo RUN VOX-1.bat       - Start the app ^(USE THIS^)
+    echo RUN-VOX-1.bat       - Start the app ^(USE THIS^)
     echo USER_GUIDE.txt      - Full instructions
     echo Launch-Debug.bat    - For troubleshooting
     echo app\                - Application files
@@ -318,7 +314,7 @@ REM Create START HERE guide
     echo.
     echo ==========================================
     echo.
-    echo Ready to create audiobooks? Double-click RUN VOX-1.bat
+    echo Ready to create audiobooks? Double-click RUN-VOX-1.bat
     echo.
 ) > "START_HERE.txt"
 
@@ -344,7 +340,7 @@ echo.
 echo 1. Read: START_HERE.txt (opening now...)
 echo.
 echo 2. To launch VOX-1:
-echo    Double-click: RUN VOX-1.bat
+echo    Double-click: RUN-VOX-1.bat
 echo.
 echo 3. For help:
 echo    Read: USER_GUIDE.txt
