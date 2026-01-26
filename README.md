@@ -1,6 +1,6 @@
 # VOX-1 Audiobook Maker
 
-GPU-accelerated audiobook generator using Qwen2-TTS models. Create professional-quality audiobooks with natural-sounding speech, batch processing, and automatic chapter management.
+GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-quality audiobooks with natural-sounding speech, batch processing, and automatic chapter management.
 
 ![VOX-1 Interface](Github_Screenshot.png)
 
