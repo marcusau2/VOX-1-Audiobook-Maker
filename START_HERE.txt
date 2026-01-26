@@ -1,0 +1,57 @@
+==========================================
+   VOX-1 AUDIOBOOK MAKER - START HERE
+==========================================
+
+CONGRATULATIONS! VOX-1 is installed and ready to use.
+
+==========================================
+QUICK START:
+==========================================
+
+1. Double-click: RUN-VOX-1.bat
+   (The app will open in your browser)
+
+2. Read the User Guide: USER_GUIDE.txt
+   (Complete instructions for beginners)
+
+3. Keep the black console window open
+   (Closing it will stop VOX-1)
+
+==========================================
+WHAT TO DO FIRST:
+==========================================
+
+In the VOX-1 app (browser):
+
+1. Go to "The Lab" tab
+   - Create a voice or clone one from audio
+   - Click "Save as Master Voice"
+
+2. Go to "Studio" tab
+   - Load your saved voice
+   - Load a text file (TXT or JSON)
+   - Click "Render Audiobook"
+
+3. Find your audiobook in: VOX-Output\ folder
+
+==========================================
+FILES IN THIS FOLDER:
+==========================================
+
+RUN-VOX-1.bat       - Start the app (USE THIS)
+USER_GUIDE.txt      - Full instructions
+Launch-Debug.bat    - For troubleshooting
+app\                - Application files
+VOX-Output\         - Your finished audiobooks
+
+==========================================
+NEED HELP?
+==========================================
+
+- Read USER_GUIDE.txt for detailed instructions
+- Check the activity log in the app for errors
+- Visit: https://github.com/marcusau2/VOX-1-Audiobook-Maker
+
+==========================================
+
+Ready to create audiobooks? Double-click RUN-VOX-1.bat

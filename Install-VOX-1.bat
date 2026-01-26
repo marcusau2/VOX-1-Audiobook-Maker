@@ -223,100 +223,26 @@ if errorlevel 1 (
 )
 
 REM ============================================
-echo Creating launchers and guides...
+echo Downloading launchers and guides from GitHub...
 echo ============================================
 
-REM Create main launcher - RUN-VOX-1.bat (no spaces in filename)
-> "RUN-VOX-1.bat" echo @echo off
->>"RUN-VOX-1.bat" echo echo ============================================
->>"RUN-VOX-1.bat" echo echo    VOX-1 Audiobook Maker
->>"RUN-VOX-1.bat" echo echo ============================================
->>"RUN-VOX-1.bat" echo echo.
->>"RUN-VOX-1.bat" echo echo Starting VOX-1...
->>"RUN-VOX-1.bat" echo echo The app will open in your browser.
->>"RUN-VOX-1.bat" echo echo.
->>"RUN-VOX-1.bat" echo echo IMPORTANT: Keep this window open while using VOX-1!
->>"RUN-VOX-1.bat" echo echo            Closing this window will stop the app.
->>"RUN-VOX-1.bat" echo echo.
->>"RUN-VOX-1.bat" echo echo ============================================
->>"RUN-VOX-1.bat" echo echo.
->>"RUN-VOX-1.bat" echo cd /d "%%~dp0"
->>"RUN-VOX-1.bat" echo python310\python.exe app\app.py
->>"RUN-VOX-1.bat" echo echo.
->>"RUN-VOX-1.bat" echo echo VOX-1 has stopped.
->>"RUN-VOX-1.bat" echo pause
+REM GitHub repository info
+set GITHUB_USER=marcusau2
+set GITHUB_REPO=VOX-1-Audiobook-Maker
+set GITHUB_BRANCH=main
+set GITHUB_BASE=https://raw.githubusercontent.com/%GITHUB_USER%/%GITHUB_REPO%/%GITHUB_BRANCH%
 
-REM Create debug launcher
-> "Launch-Debug.bat" echo @echo off
->>"Launch-Debug.bat" echo echo Debug Mode - You will see detailed error messages
->>"Launch-Debug.bat" echo echo.
->>"Launch-Debug.bat" echo cd /d "%%~dp0"
->>"Launch-Debug.bat" echo python310\python.exe app\app.py
->>"Launch-Debug.bat" echo echo.
->>"Launch-Debug.bat" echo echo Press any key to close...
->>"Launch-Debug.bat" echo pause
+REM Download main launcher
+echo Downloading RUN-VOX-1.bat...
+powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/RUN-VOX-1.bat' -OutFile 'RUN-VOX-1.bat'}"
 
-REM Create START HERE guide
-(
-    echo ==========================================
-    echo    VOX-1 AUDIOBOOK MAKER - START HERE
-    echo ==========================================
-    echo.
-    echo CONGRATULATIONS! VOX-1 is installed and ready to use.
-    echo.
-    echo ==========================================
-    echo QUICK START:
-    echo ==========================================
-    echo.
-    echo 1. Double-click: RUN-VOX-1.bat
-    echo    ^(The app will open in your browser^)
-    echo.
-    echo 2. Read the User Guide: USER_GUIDE.txt
-    echo    ^(Complete instructions for beginners^)
-    echo.
-    echo 3. Keep the black console window open
-    echo    ^(Closing it will stop VOX-1^)
-    echo.
-    echo ==========================================
-    echo WHAT TO DO FIRST:
-    echo ==========================================
-    echo.
-    echo In the VOX-1 app ^(browser^):
-    echo.
-    echo 1. Go to "The Lab" tab
-    echo    - Create a voice or clone one from audio
-    echo    - Click "Save as Master Voice"
-    echo.
-    echo 2. Go to "Studio" tab
-    echo    - Load your saved voice
-    echo    - Load a text file ^(TXT or JSON^)
-    echo    - Click "Render Audiobook"
-    echo.
-    echo 3. Find your audiobook in: VOX-Output\ folder
-    echo.
-    echo ==========================================
-    echo FILES IN THIS FOLDER:
-    echo ==========================================
-    echo.
-    echo RUN-VOX-1.bat       - Start the app ^(USE THIS^)
-    echo USER_GUIDE.txt      - Full instructions
-    echo Launch-Debug.bat    - For troubleshooting
-    echo app\                - Application files
-    echo VOX-Output\         - Your finished audiobooks
-    echo.
-    echo ==========================================
-    echo NEED HELP?
-    echo ==========================================
-    echo.
-    echo - Read USER_GUIDE.txt for detailed instructions
-    echo - Check the activity log in the app for errors
-    echo - Visit: https://github.com/marcusau2/VOX-1-Audiobook-Maker
-    echo.
-    echo ==========================================
-    echo.
-    echo Ready to create audiobooks? Double-click RUN-VOX-1.bat
-    echo.
-) > "START_HERE.txt"
+REM Download debug launcher
+echo Downloading Launch-Debug.bat...
+powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/Launch-Debug.bat' -OutFile 'Launch-Debug.bat'}"
+
+REM Download START HERE guide
+echo Downloading START_HERE.txt...
+powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/START_HERE.txt' -OutFile 'START_HERE.txt'}"
 
 REM Copy user guide from app folder to root for easy access
 copy /Y "app\USER_GUIDE.md" "USER_GUIDE.txt" >nul 2>nul
