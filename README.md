@@ -24,7 +24,10 @@ Right-click the link → "Save link as..." → Save to your project folder
 3. Wait 10-15 minutes while it downloads everything (~2.5 GB)
 
 ### Step 4: Launch
-Double-click `Launch-VOX-1.vbs` in your project folder
+After installation completes:
+1. `START_HERE.txt` will open automatically with instructions
+2. Double-click `RUN VOX-1.bat` to start the app
+3. Read `USER_GUIDE.txt` for complete instructions
 
 That's it! The app will open in your browser.
 
@@ -104,9 +107,11 @@ Adjust in **Advanced Settings** tab:
 
 ```
 Your-Project-Folder/
-├── Install-VOX-1.bat          # Installer script
-├── Launch-VOX-1.vbs           # Main launcher
-├── Launch-VOX-1-Debug.bat     # Debug launcher
+├── RUN VOX-1.bat              # ⭐ DOUBLE-CLICK THIS TO START
+├── START_HERE.txt             # Quick start guide (opens after install)
+├── USER_GUIDE.txt             # Complete user manual
+├── Launch-Debug.bat           # For troubleshooting
+├── Install-VOX-1.bat          # Installer (can run again to update)
 ├── python310/                 # Python environment
 ├── app/                       # VOX-1 application
 │   ├── app.py                 # Main GUI
@@ -115,7 +120,7 @@ Your-Project-Folder/
 │   ├── ComfyUI-Qwen-TTS/      # TTS library
 │   ├── ffmpeg_bundle/         # Audio tools
 │   ├── Output/                # Generated audio
-│   └── VOX-Output/            # Final audiobooks
+│   └── VOX-Output/            # Final audiobooks (YOUR FINISHED BOOKS HERE!)
 ```
 
 ---
