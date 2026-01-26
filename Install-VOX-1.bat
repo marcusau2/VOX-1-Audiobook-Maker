@@ -118,35 +118,61 @@ if exist "python310\python.exe" (
     )
 
     echo Installing Python to python310 folder...
-    echo This may take a minute...
-    python-installer.exe /quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="%CD%\python310"
+    echo This may take 1-2 minutes...
+    echo.
 
-    if %ERRORLEVEL% NEQ 0 (
+    REM Use start /wait to ensure installer completes before continuing
+    start /wait "" python-installer.exe /quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="%CD%\python310"
+
+    echo.
+    echo Verifying Python installation...
+
+    if not exist "python310\python.exe" (
         echo.
-        echo ERROR: Failed to install Python!
+        echo ERROR: Python installation failed!
+        echo python.exe not found in python310 folder.
+        echo.
+        echo Possible causes:
+        echo - Installation was cancelled
+        echo - Insufficient disk space
+        echo - Antivirus blocked the installation
         echo.
         pause
         exit /b 1
     )
 
-    del python-installer.exe
-    echo Python installed successfully.
+    del python-installer.exe 2>nul
+    echo Python installed successfully!
 )
 echo.
 
 REM ============================================
-echo [Step 2/4] Verifying Python installation...
+echo [Step 2/4] Verifying Python and tkinter...
 echo ============================================
 echo.
 
-if exist "python310\python.exe" (
-    python310\python.exe --version
-    echo Python is ready!
-) else (
-    echo ERROR: Python installation failed!
+echo Checking Python version...
+python310\python.exe --version
+
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Python is not working correctly!
     pause
     exit /b 1
 )
+
+echo Checking tkinter module...
+python310\python.exe -c "import tkinter; print('tkinter OK')"
+
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo ERROR: tkinter module is missing!
+    echo This should not happen with the full Python installer.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Python and tkinter are ready!
 echo.
 
 REM ============================================
