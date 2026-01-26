@@ -235,14 +235,29 @@ set GITHUB_BASE=https://raw.githubusercontent.com/%GITHUB_USER%/%GITHUB_REPO%/%G
 REM Download main launcher
 echo Downloading RUN-VOX-1.bat...
 powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/RUN-VOX-1.bat' -OutFile 'RUN-VOX-1.bat'}"
+if not exist "RUN-VOX-1.bat" (
+    echo ERROR: Failed to download RUN-VOX-1.bat!
+    echo Please check your internet connection.
+    echo You can download it manually from: %GITHUB_BASE%/RUN-VOX-1.bat
+    pause
+    exit /b 1
+)
 
 REM Download debug launcher
 echo Downloading Launch-Debug.bat...
 powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/Launch-Debug.bat' -OutFile 'Launch-Debug.bat'}"
+if not exist "Launch-Debug.bat" (
+    echo WARNING: Failed to download Launch-Debug.bat
+    echo You can download it manually from: %GITHUB_BASE%/Launch-Debug.bat
+)
 
 REM Download START HERE guide
 echo Downloading START_HERE.txt...
 powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/START_HERE.txt' -OutFile 'START_HERE.txt'}"
+if not exist "START_HERE.txt" (
+    echo WARNING: Failed to download START_HERE.txt
+    echo You can download it manually from: %GITHUB_BASE%/START_HERE.txt
+)
 
 REM Copy user guide from app folder to root for easy access
 copy /Y "app\USER_GUIDE.md" "USER_GUIDE.txt" >nul 2>nul
