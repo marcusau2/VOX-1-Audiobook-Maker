@@ -130,8 +130,19 @@ echo Downloading TTS library (ComfyUI-Qwen-TTS)...
 powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/flybirdxx/ComfyUI-Qwen-TTS/archive/refs/heads/main.zip' -OutFile 'comfyui-tts.zip'}"
 
 if errorlevel 1 (
+    echo.
     echo WARNING: Failed to download TTS library!
+    echo Trying alternate method...
+    echo.
+    REM Try without Invoke-WebRequest
+    powershell -Command "wget 'https://github.com/flybirdxx/ComfyUI-Qwen-TTS/archive/refs/heads/main.zip' -O 'comfyui-tts.zip'"
+)
+
+if not exist "comfyui-tts.zip" (
+    echo ERROR: Could not download TTS library!
     echo The app will not work without this.
+    echo.
+    echo Please check your internet connection and try again.
     pause
     exit /b 1
 )
@@ -194,14 +205,21 @@ echo This will take 5-10 minutes...
 echo Downloading PyTorch, Transformers, and other packages...
 echo.
 
-python310\python.exe -m pip install --upgrade pip
+python310\python.exe -m pip install --upgrade pip >nul 2>&1
+echo Pip upgraded.
+echo.
+echo Installing packages (this is the slow part)...
 python310\python.exe -m pip install -r app\requirements.txt
 
 if errorlevel 1 (
     echo.
     echo WARNING: Some packages may have failed to install.
-    echo Try running this script again, or check your internet connection.
     echo.
+    echo The launcher files will still be created.
+    echo You can run the installer again to retry, or run:
+    echo   python310\python.exe -m pip install -r app\requirements.txt
+    echo.
+    pause
 )
 
 REM ============================================
