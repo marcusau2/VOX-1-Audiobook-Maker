@@ -216,7 +216,7 @@ See [MANUAL_INSTALL.md](MANUAL_INSTALL.md) for detailed instructions.
 
 ## 📄 License
 
-TBD - Currently in development
+Apache 2.0
 
 ---
 
