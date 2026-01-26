@@ -319,18 +319,18 @@ class AudioEngine:
     def _suggest_batch_size(self, total_vram_gb):
         """
         Suggest optimal batch size based on total VRAM.
-        Conservative values based on Qwen3-TTS model testing (concurrency 1-6).
 
-        NOTE: Qwen3-TTS batch processing has high per-chunk VRAM requirements (~5-6GB per item).
-        Official testing shows concurrency levels of 1, 3, and 6 in the technical report.
-        We cap at batch 3 to ensure stability across all GPU models.
+        NOTE: Added non_streaming_mode=True to prevent memory accumulation.
+        This allows much higher batch sizes than previous testing.
+        Based on autiobook analysis achieving batch 64 successfully.
+        Start conservative and increase gradually to find optimal value.
         """
         if total_vram_gb >= 22:  # 4090 (24GB), 3090 (24GB)
-            return 3  # Conservative - tested and proven stable
+            return 10  # Testing higher values - can go up to 64
         elif total_vram_gb >= 11:  # 4070 Ti (12GB), 4080 (16GB), 3080 Ti (12GB)
-            return 2  # Safe for 12-16GB cards
+            return 5  # Testing higher values - can go up to 20
         elif total_vram_gb >= 7:   # 3070 (8GB), 3060 Ti (8GB)
-            return 1  # Single batch for 8-10GB cards
+            return 2  # Conservative for 8-10GB cards
         else:  # 6GB or less
             return 1  # Minimum
 

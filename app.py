@@ -485,7 +485,7 @@ class Vox1App(ctk.CTk):
         batch_label.grid(row=0, column=0, sticky="w", pady=5)
 
         self.batch_size_var = ctk.IntVar(value=self.settings.get("batch_size", 2))
-        self.batch_slider = ctk.CTkSlider(batch_frame, from_=1, to=3, number_of_steps=2,
+        self.batch_slider = ctk.CTkSlider(batch_frame, from_=1, to=64, number_of_steps=63,
                                          variable=self.batch_size_var, command=self._update_batch_label)
         self.batch_slider.grid(row=1, column=0, sticky="ew", pady=5)
 
@@ -495,10 +495,11 @@ class Vox1App(ctk.CTk):
 
         batch_info = ctk.CTkLabel(batch_frame,
             text="ℹ️ Number of text chunks processed simultaneously on your GPU.\n" +
-                 "   • Conservative values (1-3) based on Qwen3-TTS model testing\n" +
-                 "   • Batch 3 = Maximum tested stable (works on 24GB GPUs)\n" +
-                 "   • Batch 2 = Recommended for 12-16GB GPUs\n" +
-                 "   • Batch 1 = Safest for 8GB GPUs",
+                 "   • Added non_streaming_mode - testing higher batch sizes\n" +
+                 "   • Batch 5-10 = Test first on 24GB GPUs (RTX 4090)\n" +
+                 "   • Batch 20-64 = Experimental (based on autiobook success)\n" +
+                 "   • Batch 2-3 = Safe fallback for 12GB GPUs\n" +
+                 "   • Start low and increase gradually to find optimal value",
             font=("Roboto", 11), justify="left", text_color="gray")
         batch_info.grid(row=3, column=0, sticky="w", pady=5)
 
