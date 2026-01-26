@@ -64,7 +64,7 @@ if not exist "booksmith_module" (
     set MISSING_FILES=1
 )
 
-if %MISSING_FILES% EQU 1 (
+if !MISSING_FILES! EQU 1 (
     echo.
     echo ============================================
     echo ERROR: Missing required files!
@@ -108,7 +108,7 @@ if exist "python310\python.exe" (
     echo Downloading Python 3.10.11 (full installer with tkinter)...
     powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe' -OutFile 'python-installer.exe'"
 
-    if %ERRORLEVEL% NEQ 0 (
+    if !ERRORLEVEL! NEQ 0 (
         echo.
         echo ERROR: Failed to download Python!
         echo Please check your internet connection.
@@ -121,8 +121,9 @@ if exist "python310\python.exe" (
     echo This may take 1-2 minutes...
     echo.
 
-    REM Use start /wait to ensure installer completes before continuing
-    start /wait "" python-installer.exe /quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="%CD%\python310"
+    REM Run installer and wait for completion
+    REM Using short paths to avoid issues with spaces
+    python-installer.exe /quiet /wait InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="%~dp0python310"
 
     echo.
     echo Verifying Python installation...
@@ -154,7 +155,7 @@ echo.
 echo Checking Python version...
 python310\python.exe --version
 
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo ERROR: Python is not working correctly!
     pause
     exit /b 1
@@ -163,7 +164,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo Checking tkinter module...
 python310\python.exe -c "import tkinter; print('tkinter OK')"
 
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo.
     echo ERROR: tkinter module is missing!
     echo This should not happen with the full Python installer.
@@ -183,7 +184,7 @@ echo.
 REM Full Python installer includes pip
 python310\python.exe -m pip --version
 
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo Pip not found, installing...
     powershell -Command "Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile 'get-pip.py'"
     python310\python.exe get-pip.py
@@ -210,7 +211,7 @@ if exist "ffmpeg_bundle\ffmpeg.exe" (
     echo Downloading FFmpeg from GitHub...
     powershell -Command "Invoke-WebRequest -Uri 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip' -OutFile 'ffmpeg.zip'"
 
-    if %ERRORLEVEL% NEQ 0 (
+    if !ERRORLEVEL! NEQ 0 (
         echo.
         echo WARNING: FFmpeg download failed!
         echo The app may not work properly without FFmpeg.
@@ -220,7 +221,7 @@ if exist "ffmpeg_bundle\ffmpeg.exe" (
         echo Extracting FFmpeg...
         powershell -Command "Expand-Archive -Path 'ffmpeg.zip' -DestinationPath 'ffmpeg_temp' -Force"
 
-        if %ERRORLEVEL% NEQ 0 (
+        if !ERRORLEVEL! NEQ 0 (
             echo WARNING: Failed to extract FFmpeg.
         ) else (
             REM Find and copy ffmpeg.exe and ffprobe.exe
@@ -253,7 +254,7 @@ echo.
 echo Upgrading pip...
 python310\python.exe -m pip install --upgrade pip
 
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo.
     echo WARNING: Failed to upgrade pip, but continuing anyway...
     echo.
@@ -268,7 +269,7 @@ python310\python.exe -m pip install -r requirements.txt
 echo ============================================
 echo.
 
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo.
     echo ============================================
     echo WARNING: Some packages may have failed to install!
