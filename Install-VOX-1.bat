@@ -1,15 +1,45 @@
-@echo on
+@echo off
 setlocal enabledelayedexpansion
 
-REM Call main routine and ensure pause happens even if script exits early
-call :main
-pause
+REM ============================================
+REM VOX-1 Installer - Wrapper
+REM ============================================
+REM This wrapper captures all output to a log file
+REM so we can see why it crashes.
+
+set "LOGFILE=install_log.txt"
+echo Starting VOX-1 Installer...
+echo Logging to: %LOGFILE%
+echo.
+
+REM Run main routine and capture output
+call :main > "%LOGFILE%" 2>&1
+
+REM Check if script failed
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo ============================================
+    echo INSTALLATION FAILED!
+    echo ============================================
+    echo.
+    echo An error occurred. Please check the log file:
+    echo %LOGFILE%
+    echo.
+    echo Last 10 lines of log:
+    echo --------------------------------------------
+    powershell -Command "Get-Content '%LOGFILE%' -Tail 10" 2>nul
+    echo --------------------------------------------
+    echo.
+    pause
+) else (
+    echo Installation finished.
+    pause
+)
 goto :eof
 
 :main
-@echo off
 REM ============================================
-REM VOX-1 Audiobook Maker - Installer
+REM VOX-1 Audiobook Maker - Installer Main
 REM ============================================
 REM
 REM PREREQUISITES:
