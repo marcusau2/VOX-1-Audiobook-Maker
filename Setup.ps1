@@ -51,13 +51,28 @@ if (-not (Test-Path "$PythonSystemDir\python.exe")) {
     Download-File -Url $PythonInstallerUrl -OutputPath $InstallerPath
 
     Write-Host "[2/5] Installing Python (Local)..." -ForegroundColor Yellow
-    # Arguments for a private, passive install
-    $Args = "/passive InstallAllUsers=0 PrependPath=0 Include_test=0 Include_pip=1 TargetDir=`"$PythonSystemDir`""
     
-    $Process = Start-Process -FilePath $InstallerPath -ArgumentList $Args -Wait -PassThru
+    # Define arguments as an array to handle spaces/quoting correctly
+    $InstallArgs = @(
+        "/passive",
+        "InstallAllUsers=0",
+        "PrependPath=0",
+        "Include_test=0",
+        "Include_pip=1",
+        "TargetDir=$PythonSystemDir"
+    )
+
+    Write-Host "Debug: Installer Args: $InstallArgs" -ForegroundColor DarkGray
+    
+    $Process = Start-Process -FilePath $InstallerPath -ArgumentList $InstallArgs -Wait -PassThru
     
     if ($Process.ExitCode -ne 0) {
         Write-Error "Python installation failed with exit code $($Process.ExitCode)."
+    }
+
+    # Verify installation immediately
+    if (-not (Test-Path "$PythonSystemDir\python.exe")) {
+        Write-Error "Python installer finished, but python.exe is missing from: $PythonSystemDir`nCheck if the path is valid or if antivirus blocked it."
     }
     
     Remove-Item $InstallerPath -Force
