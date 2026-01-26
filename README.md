@@ -1,204 +1,197 @@
 # VOX-1 Audiobook Maker
 
-A powerful, GPU-accelerated text-to-speech audiobook generator using Qwen2-TTS models. Generate professional-quality audiobooks with multiple voice options, batch processing, and automatic chapter management.
-
-> **Status:** Active Development (Private Alpha)
-> **GPU Required:** NVIDIA GPU with 8GB+ VRAM recommended
-> **Platform:** Windows 10/11
+GPU-accelerated audiobook generator using Qwen2-TTS models. Create professional-quality audiobooks with natural-sounding speech, batch processing, and automatic chapter management.
 
 ---
 
-## Features
+## 🚀 Quick Install (Recommended)
 
-- 🎙️ **High-Quality TTS** - Qwen2-TTS models (0.6B/1.7B) for natural-sounding speech
-- ⚡ **GPU Accelerated** - Batch processing with CUDA support (4.6x faster than real-time)
-- 📚 **Chapter Support** - Automatic chapter detection and separate audio files
-- 🎵 **Multiple Voices** - 20+ pre-configured voices with emotion support
-- 📊 **Real-time Monitoring** - VRAM usage, progress tracking, activity logs
-- 🔧 **Easy Setup** - Portable version for non-developers or manual install for advanced users
+### Step 1: Create Project Folder
+Create a folder where you want VOX-1 installed. For example:
+- `C:\VOX-1\`
+- `D:\Projects\VOX-1\`
+- Or anywhere you prefer
+
+### Step 2: Download Installer
+Download the installer script:
+**[Install-VOX-1.bat](https://raw.githubusercontent.com/marcusau2/VOX-1-Audiobook-Maker/main/Install-VOX-1.bat)**
+
+Right-click the link → "Save link as..." → Save to your project folder
+
+### Step 3: Run Installer
+1. Go to your project folder
+2. Double-click `Install-VOX-1.bat`
+3. Wait 10-15 minutes while it downloads everything (~2.5 GB)
+
+### Step 4: Launch
+Double-click `Launch-VOX-1.vbs` in your project folder
+
+That's it! The app will open in your browser.
 
 ---
 
-## Quick Start
+## 📦 What Gets Installed
 
-### For Beginners (Portable Version - Recommended)
+The installer automatically downloads and sets up:
+- ✅ Python 3.10 (embedded, no system install needed)
+- ✅ VOX-1 source code
+- ✅ FFmpeg (audio processing)
+- ✅ PyTorch + CUDA (~2 GB)
+- ✅ All Python dependencies
+- ✅ TTS models (downloaded on first use)
 
-1. **Download** this repository (Code → Download ZIP)
-2. **Extract** the ZIP file
-3. **Navigate** to the `VOX-1-Portable/` folder
-4. **Run** `Download-Python.bat` (downloads Python 3.10)
-5. **Run** `Setup-Portable.bat` (sets up everything automatically, 5-10 minutes)
-6. **Launch** `Launch VOX-1 Portable.vbs`
+**Total size:** ~2.5 GB
+**Installation time:** 10-15 minutes
+**Internet required:** Only during installation
 
-That's it! No Python installation, no admin rights needed.
+---
 
-### For Developers (Manual Install)
+## 💻 System Requirements
 
-See [MANUAL_INSTALL.md](MANUAL_INSTALL.md) for detailed setup instructions.
+- **OS:** Windows 10/11 64-bit
+- **GPU:** NVIDIA with 8GB+ VRAM (12GB recommended)
+- **CUDA:** Automatically installed with PyTorch
+- **Storage:** ~5 GB free space
+- **Internet:** Required for installation only
 
-**Requirements:**
-- Python 3.10
-- NVIDIA GPU with CUDA support
-- 8GB+ VRAM (12GB+ recommended)
-- Windows 10/11
+---
 
-**Quick Install:**
+## 🎯 Features
+
+- 🎙️ **High-Quality TTS** - Qwen2-TTS models (0.6B/1.7B)
+- ⚡ **GPU Accelerated** - 1.8x faster than real-time
+- 📚 **Chapter Support** - Automatic chapter detection
+- 🎵 **Voice Cloning** - Create custom voices
+- 📊 **VRAM Monitoring** - Real-time GPU usage tracking
+- 🔄 **Batch Processing** - Process multiple chunks simultaneously
+
+---
+
+## 📖 Usage
+
+### Basic Workflow
+
+1. **The Lab Tab** - Create or clone voices
+   - Design voice from text description, or
+   - Clone from audio sample (10-30s WAV/MP3)
+   - Save as Master Voice
+
+2. **BookSmith Tab** - Extract chapters from EPUB/PDF
+   - Load EPUB or PDF file
+   - Automatically extracts chapters
+   - Exports as JSON
+
+3. **Studio Tab** - Generate audiobook
+   - Load Master Voice
+   - Load book (TXT/JSON)
+   - Click "Render Audiobook"
+   - Output: MP3 or M4B with chapters
+
+### Performance Settings
+
+Adjust in **Advanced Settings** tab:
+
+| GPU VRAM | Batch Size | Model Size | Speed |
+|----------|------------|------------|-------|
+| 8-10 GB  | 1-2        | 0.6B       | 1.5x  |
+| 12 GB    | 3-5        | 0.6B       | 1.8x  |
+| 16 GB+   | 5-10       | 1.7B       | 2.0x  |
+
+---
+
+## 📁 Folder Structure After Install
+
+```
+Your-Project-Folder/
+├── Install-VOX-1.bat          # Installer script
+├── Launch-VOX-1.vbs           # Main launcher
+├── Launch-VOX-1-Debug.bat     # Debug launcher
+├── python310/                 # Python environment
+├── app/                       # VOX-1 application
+│   ├── app.py                 # Main GUI
+│   ├── backend.py             # TTS engine
+│   ├── booksmith_module/      # Text processing
+│   ├── ComfyUI-Qwen-TTS/      # TTS library
+│   ├── ffmpeg_bundle/         # Audio tools
+│   ├── Output/                # Generated audio
+│   └── VOX-Output/            # Final audiobooks
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### "CUDA out of memory"
+- Reduce batch size in Advanced Settings
+- Switch to 0.6B model instead of 1.7B
+- Close other GPU applications
+- Restart the app
+
+### Slow generation
+- Check VRAM usage in activity log
+- Increase batch size if VRAM allows
+- Try attention mode: "sdpa" (fastest)
+
+### App won't start
+- Make sure you have an NVIDIA GPU
+- Check GPU drivers are updated
+- Run `Launch-VOX-1-Debug.bat` to see error messages
+
+### Installation failed
+- Check internet connection
+- Run installer again (it will resume)
+- Manually download Python from: https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip
+
+---
+
+## 🔄 Updating VOX-1
+
+To update to the latest version:
+1. Run `Install-VOX-1.bat` again
+2. Choose "Yes" when asked to re-download
+3. Your settings and output files are preserved
+
+---
+
+## 🛠️ Advanced Installation (Developers)
+
+If you want to modify the code or contribute:
+
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/marcusau2/VOX-1-Audiobook-Maker.git
 cd VOX-1-Audiobook-Maker
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the app
+# Run app
 python app.py
 ```
 
----
-
-## Usage
-
-### Basic Workflow
-
-1. **Create/Load Voice** (The Lab tab)
-   - Design voice from text description, OR
-   - Clone voice from audio sample (10-30s)
-   - Save as Master Voice
-
-2. **Load Book** (BookSmith or Studio tab)
-   - EPUB/PDF: Use BookSmith to extract chapters
-   - TXT/JSON: Use Studio directly
-
-3. **Render** (Studio tab)
-   - Load Master Voice
-   - Load Book
-   - Click "Render Audiobook"
-   - Output: MP3 (TXT) or M4B with chapters (EPUB/PDF/JSON)
-
-### Recommended Settings
-
-| GPU VRAM | Batch Size | Model Size | Expected Speed |
-|----------|------------|------------|----------------|
-| 8-10 GB  | 1-2        | 0.6B       | ~1.5x realtime |
-| 12 GB    | 3-5        | 0.6B       | ~1.8x realtime |
-| 16 GB+   | 5-10       | 1.7B       | ~2.0x realtime |
+See [MANUAL_INSTALL.md](MANUAL_INSTALL.md) for detailed instructions.
 
 ---
 
-## Project Structure
+## 📚 Documentation
 
-```
-VOX-1-Audiobook-Maker/
-├── app.py                  # Main GUI application
-├── backend.py              # TTS processing engine
-├── requirements.txt        # Python dependencies
-├── booksmith_module/       # Text processing utilities
-├── ffmpeg_bundle/          # Audio processing tools
-├── VOX-1-Portable/         # Portable version setup scripts
-├── Launch Vox-1.vbs        # Quick launcher (no console)
-├── Launch Vox-1.bat        # Debug launcher (shows console)
-└── README.md               # This file
-```
+- **README.md** - This file (quick start)
+- **MANUAL_INSTALL.md** - Advanced installation guide
+- **booksmith_module/README.md** - Text processing details
 
 ---
 
-## Performance
-
-**Current Benchmarks (RTX 3060 12GB):**
-- Model: Qwen2-TTS 0.6B
-- Batch Size: 3
-- Attention: SDPA
-- Speed: 16.32s per chunk (~1.8x faster than real-time)
-- VRAM: ~7.2GB stable (60% utilization)
-
----
-
-## Troubleshooting
-
-### "CUDA out of memory" error
-- Reduce batch size in Advanced Settings (try batch_size=1)
-- Switch to 0.6B model instead of 1.7B
-- Close other GPU applications
-
-### Slow generation
-- Check VRAM usage in activity log
-- Increase batch size if VRAM allows
-- Try different attention modes (sdpa, sage_attn, flash_attn_2)
-
-### Voice not loading
-- Check that voice JSON files exist in project root
-- Verify voice name matches exactly (case-sensitive)
-
----
-
-## Configuration
-
-**Settings File:** `user_settings.json`
-
-```json
-{
-  "batch_size": 3,          // Chunks processed simultaneously
-  "chunk_size": 500,        // Characters per chunk
-  "model_size": "0.6B",     // TTS model (0.6B or 1.7B)
-  "attention_mode": "sdpa", // Attention implementation
-  "temperature": 0.7,       // Voice variation (0.1-2.0)
-  "repetition_penalty": 1.05
-}
-```
-
-**Adjust in GUI:** Advanced Settings tab
-
----
-
-## Supported Formats
-
-| Type | Input | Output |
-|------|-------|--------|
-| Books | TXT, EPUB, PDF, JSON | MP3, M4B |
-| Voice | WAV, MP3 | WAV (optimized) |
-
----
-
-## Technical Details
-
-### Models Used
-- **Qwen2-TTS 0.6B** - Fast, efficient, great quality (default)
-- **Qwen2-TTS 1.7B** - Higher quality, requires more VRAM
-
-### Attention Mechanisms
-- **SDPA** - Scaled Dot Product Attention (default, fastest)
-- **sage_attn** - Memory-efficient attention
-- **flash_attn_2** - Flash Attention 2 (requires installation)
-
-### Audio Processing
-- Output: MP3 format (configurable)
-- Sample Rate: 24kHz
-- Bitrate: 192kbps (configurable)
-
----
-
-## Documentation
-
-📄 **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Complete project overview
-📄 **[MANUAL_INSTALL.md](MANUAL_INSTALL.md)** - Advanced installation guide
-📄 **[PORTABLE_VERSION_GUIDE.md](PORTABLE_VERSION_GUIDE.md)** - Portable setup details
-📄 **[booksmith_module/README.md](booksmith_module/README.md)** - EPUB/PDF processing
-
----
-
-## Known Issues
+## 🐛 Known Issues
 
 - First generation after launch is slower (model loading)
-- Very long texts (>50k words) may require multiple sessions
-- Some special characters may not render correctly in audio
+- Very long texts (>50k words) may need multiple sessions
+- Some special characters may not render in audio
 
 ---
 
-## Roadmap
+## 🗺️ Roadmap
 
 - [ ] Linux support
-- [ ] Voice cloning from user samples
 - [ ] Real-time preview
 - [ ] Multi-language support
 - [ ] Cloud GPU integration
@@ -206,26 +199,28 @@ VOX-1-Audiobook-Maker/
 
 ---
 
-## License
+## 📄 License
 
-TBD - Currently private development
+TBD - Currently in development
 
 ---
 
-## Credits
+## 🙏 Credits
 
 Built with:
 - [Qwen2-TTS](https://github.com/QwenLM/Qwen2-Audio) by Alibaba
 - [PyTorch](https://pytorch.org/)
-- [Gradio](https://gradio.app/) for UI
-- [FFmpeg](https://ffmpeg.org/) for audio processing
+- [Gradio](https://gradio.app/)
+- [FFmpeg](https://ffmpeg.org/)
 
 ---
 
-## Contact
+## 💬 Support
 
-For issues and questions, please open a GitHub issue or contact the maintainer directly.
+For issues, questions, or feature requests:
+- Open an issue on GitHub
+- Check existing issues for solutions
 
 ---
 
-**Last Updated:** January 2025
+**Last Updated:** January 2026
