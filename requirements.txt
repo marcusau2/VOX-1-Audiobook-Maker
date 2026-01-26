@@ -14,9 +14,6 @@ accelerate
 EbookLib
 beautifulsoup4
 PyPDF2
-# Sage Attention (fastest, 2-3x speedup) - Windows compatible
-triton-windows
-sageattention
 # flash-attn is recommended for RTX 4090 but can be tricky to install via pip in some envs.
 # We include it here, but the user might need to install it manually if it fails.
 # flash-attn>=2.0.0; sys_platform == "linux" or platform_machine == "x86_64"

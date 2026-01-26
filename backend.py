@@ -266,7 +266,7 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 
 class AudioEngine:
     def __init__(self, log_callback=print, model_size="1.7B", batch_size=3, chunk_size=500,
-                 attention_mode="auto", temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05):
+                 temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05):
         self.log = log_callback
         self.model_size = model_size
         self.batch_size = batch_size
@@ -278,21 +278,8 @@ class AudioEngine:
         self.top_k = top_k
         self.repetition_penalty = repetition_penalty
 
-        # Attention mechanism selection
-        self.attention_mode = attention_mode
-        self._determine_attention_implementation()
-
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.log(f"Initializing AudioEngine on {self.device}...")
-
-        # Log detected attention implementations
-        detected = []
-        if HAS_SAGE_ATTN:
-            detected.append("sage_attn (fastest)")
-        if HAS_FLASH_ATTN:
-            detected.append("flash_attn")
-        detected.append("sdpa")
-        self.log(f"Detected attention modes: {', '.join(detected)}")
 
         # Enable cudnn benchmarking for faster inference with consistent tensor sizes
         if self.device == "cuda":
@@ -365,42 +352,6 @@ class AudioEngine:
         else:  # 6GB or less
             return 1
 
-    def _determine_attention_implementation(self):
-        """
-        Determines which attention implementation to use based on:
-        - User selection (auto/flash_attn/sdpa/eager)
-        - Availability of sage-attn package (only acceleration that works with Qwen3-TTS)
-        - Fallback chain for maximum compatibility
-
-        NOTE: flash-attn does NOT work with Qwen3-TTS architecture (attn_implementation
-        parameter is ignored). Only sage_attn (manual patching) provides acceleration.
-        """
-        if self.attention_mode == "auto":
-            # Auto mode: Use sdpa (sage_attn was tested and is slower, not faster)
-            self.attn_implementation = "sdpa"
-            self.log("Attention: sdpa (PyTorch built-in)")
-        elif self.attention_mode == "sage_attn":
-            # Sage attention was tested and makes generation SLOWER (56-71s vs 50-60s)
-            self.log("WARNING: sage_attn was tested and makes generation slower, not faster.")
-            self.log("Falling back to sdpa (standard PyTorch attention).")
-            self.attn_implementation = "sdpa"
-        elif self.attention_mode == "flash_attn":
-            # Flash attention doesn't work with Qwen3-TTS (attn_implementation ignored)
-            self.log("WARNING: flash_attn mode selected, but Qwen3-TTS doesn't support it.")
-            self.log("The attn_implementation parameter is ignored by Qwen3-TTS architecture.")
-            self.log("Falling back to sdpa")
-            self.attn_implementation = "sdpa"
-        elif self.attention_mode == "sdpa":
-            self.attn_implementation = "sdpa"
-            self.log("Attention: sdpa (user-selected)")
-        elif self.attention_mode == "eager":
-            self.attn_implementation = "eager"
-            self.log("Attention: eager (user-selected)")
-        else:
-            # Unknown mode, fall back to sdpa
-            self.log(f"WARNING: Unknown attention mode '{self.attention_mode}', using sdpa")
-            self.attn_implementation = "sdpa"
-
     def _setup_ffmpeg(self):
         """Check for system ffmpeg first, fall back to bundled version if not found."""
         # Check if system ffmpeg is available
@@ -443,61 +394,6 @@ class AudioEngine:
             if self.device == "cuda":
                 torch.cuda.empty_cache()
 
-    def _apply_sage_attention(self):
-        """
-        Apply sage attention monkey-patching to the loaded model.
-        Based on ComfyUI-Qwen-TTS implementation.
-        """
-        try:
-            from sageattention import sageattn
-            self.log("Applying SageAttention patches to model...")
-
-            patched_count = 0
-            for name, module in self.active_model.model.named_modules():
-                # ONLY patch actual attention modules (not their sub-components)
-                module_type = type(module).__name__
-                if hasattr(module, 'forward') and 'Attention' in module_type:
-                    try:
-                        original_forward = module.forward
-
-                        def make_sage_forward(orig_forward):
-                            def sage_forward(*args, **kwargs):
-                                # Extract q, k, v from attention call
-                                if len(args) >= 3:
-                                    q, k, v = args[0], args[1], args[2]
-                                else:
-                                    # Fallback to original if args don't match expected format
-                                    return orig_forward(*args, **kwargs)
-
-                                # Handle attention_mask
-                                attn_mask = kwargs.get('attention_mask', None)
-
-                                # Call sageattention
-                                out = sageattn(q, k, v, is_causal=False, attn_mask=attn_mask)
-                                return out
-                            return sage_forward
-
-                        module.forward = make_sage_forward(original_forward)
-                        patched_count += 1
-                    except Exception as e:
-                        self.log(f"Warning: Could not patch module {name}: {e}")
-                        pass
-
-            if patched_count > 0:
-                self.log(f"✓ SageAttention patches applied to {patched_count} attention modules")
-            else:
-                self.log("WARNING: No attention modules were patched. Falling back to SDPA.")
-                self.attn_implementation = "sdpa"
-
-        except ImportError:
-            self.log("ERROR: sageattention package not found, falling back to SDPA")
-            self.log("Install with: pip install triton-windows sageattention")
-            self.attn_implementation = "sdpa"
-        except Exception as e:
-            self.log(f"ERROR: Could not apply SageAttention patches: {e}")
-            self.log("Falling back to standard attention")
-            self.attn_implementation = "sdpa"
-
     def _ensure_model(self, model_type):
         """Loads the requested model if not already loaded."""
         if self.active_model_type == model_type:
@@ -517,8 +413,7 @@ class AudioEngine:
             self.log(f"Loading RENDER model ({model_id})...")
 
         try:
-            # Qwen3-TTS ignores attn_implementation parameter, so we just load normally
-            # Sage attention patching was tested and makes generation slower, so we don't use it
+            # Qwen3-TTS load
             self.active_model = Qwen3TTSModel.from_pretrained(
                 model_id,
                 device_map=self.device,
@@ -527,8 +422,7 @@ class AudioEngine:
 
             # Optimization: Compile the model if using the smaller 0.6B version for speed
             # Note: torch.compile on Windows can be unreliable, so we skip if it fails
-            # Skip compilation if using sage_attn (can interfere with monkey-patching)
-            if "0.6B" in model_id and hasattr(torch, "compile") and self.attn_implementation != "sage_attn":
+            if "0.6B" in model_id and hasattr(torch, "compile"):
                 self.log("Attempting to compile model with torch.compile()...")
                 try:
                     # Try reduce-overhead mode for Windows - better compatibility
@@ -1850,7 +1744,8 @@ class AudioEngine:
                 fp = os.path.join(self.temp_dir, f)
                 if os.path.isfile(fp): os.unlink(fp)
                 elif os.path.isdir(fp): shutil.rmtree(fp)
-        except: pass
+        except:
+            pass
 
     def clear_converted_files(self):
         """Clear only converted EPUB/PDF files (not chunk cache)."""
@@ -1860,4 +1755,5 @@ class AudioEngine:
                 fp = os.path.join(self.temp_dir, filename)
                 if os.path.exists(fp):
                     os.unlink(fp)
-        except: pass
+        except:
+            pass
