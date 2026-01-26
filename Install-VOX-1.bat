@@ -141,15 +141,15 @@ echo Done.
 echo.
 
 REM ============================================
-echo [5/6] Downloading FFmpeg (~101 MB)...
+echo [5/6] Downloading FFmpeg (~201 MB from GitHub)...
 echo ============================================
 echo.
 
 if exist "app\ffmpeg_bundle\ffmpeg.exe" (
     echo FFmpeg already installed.
 ) else (
-    echo Downloading FFmpeg...
-    powershell -Command "& {Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile 'ffmpeg.zip'}"
+    echo Downloading FFmpeg from GitHub (fast CDN)...
+    powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip' -OutFile 'ffmpeg.zip'}"
 
     if errorlevel 1 (
         echo WARNING: FFmpeg download failed!
