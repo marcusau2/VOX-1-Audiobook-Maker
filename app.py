@@ -56,7 +56,7 @@ class Vox1App(ctk.CTk):
         return {
             "model_size": "0.6B",
             "last_voice": None,
-            "batch_size": 5,
+            "batch_size": 2,
             "chunk_size": 500,
             "temperature": 0.7,
             "top_p": 0.8,
@@ -480,12 +480,12 @@ class Vox1App(ctk.CTk):
         batch_frame.grid(row=2, column=0, sticky="ew", pady=10)
         batch_frame.grid_columnconfigure(0, weight=1)
 
-        batch_label = ctk.CTkLabel(batch_frame, text="Batch Size (Default: 3)",
+        batch_label = ctk.CTkLabel(batch_frame, text="Batch Size (Default: 2)",
                                    font=("Roboto", 14, "bold"))
         batch_label.grid(row=0, column=0, sticky="w", pady=5)
 
-        self.batch_size_var = ctk.IntVar(value=self.settings.get("batch_size", 3))
-        self.batch_slider = ctk.CTkSlider(batch_frame, from_=1, to=32, number_of_steps=31,
+        self.batch_size_var = ctk.IntVar(value=self.settings.get("batch_size", 2))
+        self.batch_slider = ctk.CTkSlider(batch_frame, from_=1, to=3, number_of_steps=2,
                                          variable=self.batch_size_var, command=self._update_batch_label)
         self.batch_slider.grid(row=1, column=0, sticky="ew", pady=5)
 
@@ -495,9 +495,10 @@ class Vox1App(ctk.CTk):
 
         batch_info = ctk.CTkLabel(batch_frame,
             text="ℹ️ Number of text chunks processed simultaneously on your GPU.\n" +
-                 "   • Higher values = Faster generation, but uses more VRAM\n" +
-                 "   • Lower values = Slower, but safer for GPUs with less VRAM\n" +
-                 "   • If you get \"out of memory\" errors, reduce this value",
+                 "   • Conservative values (1-3) based on Qwen3-TTS model testing\n" +
+                 "   • Batch 3 = Maximum tested stable (works on 24GB GPUs)\n" +
+                 "   • Batch 2 = Recommended for 12-16GB GPUs\n" +
+                 "   • Batch 1 = Safest for 8GB GPUs",
             font=("Roboto", 11), justify="left", text_color="gray")
         batch_info.grid(row=3, column=0, sticky="w", pady=5)
 
@@ -712,14 +713,14 @@ class Vox1App(ctk.CTk):
 
     def _reset_advanced_settings(self):
         """Reset all advanced settings to defaults."""
-        self.batch_size_var.set(5)
+        self.batch_size_var.set(2)
         self.chunk_size_var.set(500)
         self.temperature_var.set(0.7)
         self.repetition_penalty_var.set(1.05)
         self.show_vram_var.set(True)
         self.show_timing_var.set(True)
         self.debug_mode_var.set(False)
-        self._update_batch_label(5)
+        self._update_batch_label(2)
         self._update_chunk_label(500)
         self._update_temp_label(0.7)
         self._update_rep_label(1.05)
@@ -784,7 +785,7 @@ class Vox1App(ctk.CTk):
                 # Force engine reload
                 self.engine = None
                 # Pass advanced settings to engine
-                batch_size = self.settings.get("batch_size", 5)
+                batch_size = self.settings.get("batch_size", 2)
                 chunk_size = self.settings.get("chunk_size", 500)
                 temperature = self.settings.get("temperature", 0.7)
                 top_p = self.settings.get("top_p", 0.8)
