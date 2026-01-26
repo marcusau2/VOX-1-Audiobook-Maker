@@ -10,8 +10,7 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $PythonVersion = "3.10.11"
-$PythonEmbedUrl = "https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip"
-$GetPipUrl = "https://bootstrap.pypa.io/get-pip.py"
+$PythonInstallerUrl = "https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe"
 $FFmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 
 $RootDir = $PSScriptRoot
@@ -45,48 +44,37 @@ Write-Host "This script will install a private Python environment"
 Write-Host "and all dependencies for VOX-1."
 Write-Host ""
 
-# 1. Install Python (Embeddable Method)
+# 1. Install Python (Private Full Install)
 if (-not (Test-Path "$PythonSystemDir\python.exe")) {
-    Write-Host "[1/5] Downloading Python 3.10 (Embeddable)..." -ForegroundColor Yellow
-    $ZipPath = Join-Path $RootDir "python.zip"
-    Download-File -Url $PythonEmbedUrl -OutputPath $ZipPath
+    Write-Host "[1/4] Downloading Python 3.10 (Full Installer)..." -ForegroundColor Yellow
+    $InstallerPath = Join-Path $RootDir "python_installer.exe"
+    Download-File -Url $PythonInstallerUrl -OutputPath $InstallerPath
 
-    Write-Host "[2/5] Extracting Python..." -ForegroundColor Yellow
-    New-Item -ItemType Directory -Force -Path $PythonSystemDir | Out-Null
-    Extract-Zip -ZipPath $ZipPath -DestPath $PythonSystemDir
-    Remove-Item $ZipPath -Force
-
-    # CRITICAL: Enable 'site' package to allow pip/venv to work
-    Write-Host "Configuring Python for pip/venv support..." -ForegroundColor Cyan
-    $PthFile = Join-Path $PythonSystemDir "python310._pth"
-    if (Test-Path $PthFile) {
-        $Content = Get-Content $PthFile
-        $Content = $Content -replace "#import site", "import site"
-        Set-Content -Path $PthFile -Value $Content
-    }
-
-    # Install pip manually (Embeddable doesn't have it)
-    Write-Host "Installing pip..." -ForegroundColor Cyan
-    $GetPipPath = Join-Path $RootDir "get-pip.py"
-    Download-File -Url $GetPipUrl -OutputPath $GetPipPath
+    Write-Host "[2/4] Installing Python (Local)..." -ForegroundColor Yellow
     
-    # Use isolated mode and trusted hosts to avoid network/config issues
-    $PipArgs = @(
-        "$GetPipPath",
-        "--no-warn-script-location",
-        "--isolated",
-        "--trusted-host", "pypi.org",
-        "--trusted-host", "pypi.python.org",
-        "--trusted-host", "files.pythonhosted.org"
+    # Arguments for a private, passive install
+    # /passive = show progress bar but don't wait for input
+    # InstallAllUsers=0 = install to target directory only
+    # PrependPath=0 = don't modify system PATH
+    # Include_test=0 = skip test suite
+    $InstallArgs = @(
+        "/passive",
+        "InstallAllUsers=0",
+        "PrependPath=0",
+        "Include_test=0",
+        "Include_pip=1",
+        "Include_tcltk=1",
+        "TargetDir=$PythonSystemDir"
     )
     
-    $Process = Start-Process -FilePath "$PythonSystemDir\python.exe" -ArgumentList $PipArgs -Wait -PassThru
+    Write-Host "Running installer..." -ForegroundColor DarkGray
+    $Process = Start-Process -FilePath $InstallerPath -ArgumentList $InstallArgs -Wait -PassThru
     
     if ($Process.ExitCode -ne 0) {
-        Write-Error "Failed to install pip. Exit code: $($Process.ExitCode)"
+        Write-Error "Python installation failed with exit code $($Process.ExitCode)."
     }
-    Remove-Item $GetPipPath -Force
-
+    
+    Remove-Item $InstallerPath -Force
     Write-Host "Python installed successfully." -ForegroundColor Green
 } else {
     Write-Host "Python already installed." -ForegroundColor Green
