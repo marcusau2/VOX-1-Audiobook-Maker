@@ -70,7 +70,7 @@ The `requirements.txt` includes:
 - **Gradio** (UI framework)
 - **FFmpeg** (audio processing)
 - **numpy, scipy** (numerical computing)
-- **Qwen2-TTS** models and dependencies
+- **Qwen3-TTS** models and dependencies
 
 Installation may take 5-10 minutes depending on internet speed.
 
@@ -319,7 +319,7 @@ Place custom voice JSON files in project root:
 
 ### Custom Models
 
-To use custom Qwen2-TTS models:
+To use custom Qwen3-TTS models:
 
 1. Place model in: `models/your-custom-model/`
 2. Update backend.py model path

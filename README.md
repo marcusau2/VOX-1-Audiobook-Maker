@@ -104,7 +104,7 @@ If you downloaded as ZIP:
 
 ## 🎯 Features
 
-- 🎙️ **High-Quality TTS** - Qwen2-TTS models (0.6B/1.7B)
+- 🎙️ **High-Quality TTS** - Qwen3-TTS models (0.6B/1.7B)
 - ⚡ **GPU Accelerated** - 1.8x faster than real-time
 - 📚 **Chapter Support** - Automatic chapter detection
 - 🎵 **Voice Cloning** - Create custom voices
