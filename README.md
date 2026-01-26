@@ -223,7 +223,7 @@ TBD - Currently in development
 ## 🙏 Credits
 
 Built with:
-- [Qwen2-TTS](https://github.com/QwenLM/Qwen2-Audio) by Alibaba
+- [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)
 - [PyTorch](https://pytorch.org/)
 - [Gradio](https://gradio.app/)
 - [FFmpeg](https://ffmpeg.org/)
