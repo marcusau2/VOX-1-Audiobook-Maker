@@ -125,6 +125,20 @@ xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\booksmith_module" "app\booksmith
 copy /Y "temp\VOX-1-Audiobook-Maker-main\requirements.txt" "app\requirements.txt" >nul
 copy /Y "temp\VOX-1-Audiobook-Maker-main\*.md" "app\" >nul 2>nul
 
+REM Copy launcher files from repo to root directory
+echo Copying launcher files...
+copy /Y "temp\VOX-1-Audiobook-Maker-main\RUN-VOX-1.bat" "RUN-VOX-1.bat" >nul
+copy /Y "temp\VOX-1-Audiobook-Maker-main\Launch-Debug.bat" "Launch-Debug.bat" >nul
+copy /Y "temp\VOX-1-Audiobook-Maker-main\START_HERE.txt" "START_HERE.txt" >nul
+
+if not exist "RUN-VOX-1.bat" (
+    echo ERROR: Failed to copy RUN-VOX-1.bat from repository!
+    echo Please check if the file exists in the downloaded repo.
+    pause
+    exit /b 1
+)
+echo Launcher files copied successfully.
+
 REM Download ComfyUI-Qwen-TTS library
 echo Downloading TTS library (ComfyUI-Qwen-TTS)...
 powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/flybirdxx/ComfyUI-Qwen-TTS/archive/refs/heads/main.zip' -OutFile 'comfyui-tts.zip'}"
@@ -222,47 +236,8 @@ if errorlevel 1 (
     pause
 )
 
-REM ============================================
-echo Downloading launchers and guides from GitHub...
-echo ============================================
-
-REM GitHub repository info
-set GITHUB_USER=marcusau2
-set GITHUB_REPO=VOX-1-Audiobook-Maker
-set GITHUB_BRANCH=main
-set GITHUB_BASE=https://raw.githubusercontent.com/%GITHUB_USER%/%GITHUB_REPO%/%GITHUB_BRANCH%
-
-REM Download main launcher
-echo Downloading RUN-VOX-1.bat...
-powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/RUN-VOX-1.bat' -OutFile 'RUN-VOX-1.bat'}"
-if not exist "RUN-VOX-1.bat" (
-    echo ERROR: Failed to download RUN-VOX-1.bat!
-    echo Please check your internet connection.
-    echo You can download it manually from: %GITHUB_BASE%/RUN-VOX-1.bat
-    pause
-    exit /b 1
-)
-
-REM Download debug launcher
-echo Downloading Launch-Debug.bat...
-powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/Launch-Debug.bat' -OutFile 'Launch-Debug.bat'}"
-if not exist "Launch-Debug.bat" (
-    echo WARNING: Failed to download Launch-Debug.bat
-    echo You can download it manually from: %GITHUB_BASE%/Launch-Debug.bat
-)
-
-REM Download START HERE guide
-echo Downloading START_HERE.txt...
-powershell -Command "& {Invoke-WebRequest -Uri '%GITHUB_BASE%/START_HERE.txt' -OutFile 'START_HERE.txt'}"
-if not exist "START_HERE.txt" (
-    echo WARNING: Failed to download START_HERE.txt
-    echo You can download it manually from: %GITHUB_BASE%/START_HERE.txt
-)
-
 REM Copy user guide from app folder to root for easy access
 copy /Y "app\USER_GUIDE.md" "USER_GUIDE.txt" >nul 2>nul
-
-echo Done.
 echo.
 
 REM ============================================
