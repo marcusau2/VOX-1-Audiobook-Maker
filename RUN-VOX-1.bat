@@ -3,16 +3,23 @@ echo ============================================
 echo    VOX-1 Audiobook Maker
 echo ============================================
 echo.
-echo Starting VOX-1...
-echo A desktop window will open shortly.
-echo.
-echo IMPORTANT: Keep this console window open while using VOX-1!
-echo            Closing this window will stop the app.
-echo.
-echo ============================================
-echo.
 cd /d "%~dp0"
-python310\python.exe app.py
+
+if not exist "venv\Scripts\python.exe" (
+    echo ERROR: Python environment not found!
+    echo Please run Install-VOX-1.bat first.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Starting VOX-1...
+echo.
+echo IMPORTANT: Keep this console window open!
+echo.
+
+venv\Scripts\python.exe app.py
+
 echo.
 echo VOX-1 has stopped.
 pause
