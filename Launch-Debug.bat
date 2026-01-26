@@ -25,10 +25,10 @@ if exist "python310\python.exe" (
 )
 echo.
 echo Checking app.py...
-if exist "app\app.py" (
+if exist "app.py" (
     echo [OK] app.py found
 ) else (
-    echo [ERROR] app\app.py not found
+    echo [ERROR] app.py not found
     echo Please run Install-VOX-1.bat
     pause
     exit /b 1
@@ -37,7 +37,7 @@ echo.
 echo Starting VOX-1 with debug output...
 echo ============================================
 echo.
-python310\python.exe app\app.py
+python310\python.exe app.py
 echo.
 echo ============================================
 echo VOX-1 has stopped.

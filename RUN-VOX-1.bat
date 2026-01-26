@@ -12,7 +12,7 @@ echo.
 echo ============================================
 echo.
 cd /d "%~dp0"
-python310\python.exe app\app.py
+python310\python.exe app.py
 echo.
 echo VOX-1 has stopped.
 pause

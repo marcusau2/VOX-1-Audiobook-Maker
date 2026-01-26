@@ -118,26 +118,22 @@ if errorlevel 1 (
 echo Extracting source code...
 powershell -Command "& {Expand-Archive -Path 'vox1-source.zip' -DestinationPath 'temp' -Force}"
 
-echo Organizing files...
-mkdir app 2>nul
-xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\*.py" "app\" >nul
-xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\booksmith_module" "app\booksmith_module\" >nul
-copy /Y "temp\VOX-1-Audiobook-Maker-main\requirements.txt" "app\requirements.txt" >nul
-copy /Y "temp\VOX-1-Audiobook-Maker-main\*.md" "app\" >nul 2>nul
-
-REM Copy launcher files from repo to root directory
-echo Copying launcher files...
-copy /Y "temp\VOX-1-Audiobook-Maker-main\RUN-VOX-1.bat" "RUN-VOX-1.bat" >nul
-copy /Y "temp\VOX-1-Audiobook-Maker-main\Launch-Debug.bat" "Launch-Debug.bat" >nul
-copy /Y "temp\VOX-1-Audiobook-Maker-main\START_HERE.txt" "START_HERE.txt" >nul
+echo Copying all files from repository...
+xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\*" "." >nul
 
 if not exist "RUN-VOX-1.bat" (
-    echo ERROR: Failed to copy RUN-VOX-1.bat from repository!
-    echo Please check if the file exists in the downloaded repo.
+    echo ERROR: Failed to extract repository files!
+    echo Please check if the download completed successfully.
     pause
     exit /b 1
 )
-echo Launcher files copied successfully.
+if not exist "app.py" (
+    echo ERROR: app.py not found in repository!
+    echo Please check if the download completed successfully.
+    pause
+    exit /b 1
+)
+echo Repository files extracted successfully.
 
 REM Download ComfyUI-Qwen-TTS library
 echo Downloading TTS library (ComfyUI-Qwen-TTS)...
@@ -162,15 +158,15 @@ if not exist "comfyui-tts.zip" (
 )
 
 powershell -Command "& {Expand-Archive -Path 'comfyui-tts.zip' -DestinationPath 'temp_tts' -Force}"
-xcopy /E /I /Y "temp_tts\ComfyUI-Qwen-TTS-main" "app\ComfyUI-Qwen-TTS\" >nul
+xcopy /E /I /Y "temp_tts\ComfyUI-Qwen-TTS-main" "ComfyUI-Qwen-TTS\" >nul
 rmdir /S /Q temp_tts 2>nul
 del comfyui-tts.zip 2>nul
 
 REM Create output directories
-mkdir "app\Output" 2>nul
-mkdir "app\VOX-Output" 2>nul
-mkdir "app\temp_work" 2>nul
-mkdir "app\ffmpeg_bundle" 2>nul
+mkdir "Output" 2>nul
+mkdir "VOX-Output" 2>nul
+mkdir "temp_work" 2>nul
+mkdir "ffmpeg_bundle" 2>nul
 
 REM Cleanup
 rmdir /S /Q temp 2>nul
@@ -185,7 +181,7 @@ echo [5/6] Downloading FFmpeg (~201 MB from GitHub)...
 echo ============================================
 echo.
 
-if exist "app\ffmpeg_bundle\ffmpeg.exe" (
+if exist "ffmpeg_bundle\ffmpeg.exe" (
     echo FFmpeg already installed.
 ) else (
     echo Downloading FFmpeg from GitHub (fast CDN)...
@@ -200,8 +196,8 @@ if exist "app\ffmpeg_bundle\ffmpeg.exe" (
         powershell -Command "& {Expand-Archive -Path 'ffmpeg.zip' -DestinationPath 'ffmpeg_temp' -Force}"
 
         for /d %%D in (ffmpeg_temp\ffmpeg-*) do (
-            copy /Y "%%D\bin\ffmpeg.exe" "app\ffmpeg_bundle\ffmpeg.exe" >nul
-            copy /Y "%%D\bin\ffprobe.exe" "app\ffmpeg_bundle\ffprobe.exe" >nul
+            copy /Y "%%D\bin\ffmpeg.exe" "ffmpeg_bundle\ffmpeg.exe" >nul
+            copy /Y "%%D\bin\ffprobe.exe" "ffmpeg_bundle\ffprobe.exe" >nul
         )
 
         rmdir /S /Q ffmpeg_temp 2>nul
@@ -223,7 +219,7 @@ python310\python.exe -m pip install --upgrade pip >nul 2>&1
 echo Pip upgraded.
 echo.
 echo Installing packages (this is the slow part)...
-python310\python.exe -m pip install -r app\requirements.txt
+python310\python.exe -m pip install -r requirements.txt
 
 if errorlevel 1 (
     echo.
@@ -231,13 +227,11 @@ if errorlevel 1 (
     echo.
     echo The launcher files will still be created.
     echo You can run the installer again to retry, or run:
-    echo   python310\python.exe -m pip install -r app\requirements.txt
+    echo   python310\python.exe -m pip install -r requirements.txt
     echo.
     pause
 )
 
-REM Copy user guide from app folder to root for easy access
-copy /Y "app\USER_GUIDE.md" "USER_GUIDE.txt" >nul 2>nul
 echo.
 
 REM ============================================
@@ -259,7 +253,7 @@ echo 2. To launch VOX-1:
 echo    Double-click: RUN-VOX-1.bat
 echo.
 echo 3. For help:
-echo    Read: USER_GUIDE.txt
+echo    Read: USER_GUIDE.md
 echo.
 echo ============================================
 echo.
