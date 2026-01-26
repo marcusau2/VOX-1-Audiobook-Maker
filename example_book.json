@@ -1,0 +1,24 @@
+{
+  "title": "The Adventure Begins",
+  "author": "Jane Smith",
+  "chapters": [
+    {
+      "id": 1,
+      "label": "Chapter 1: The Journey Starts",
+      "style_prompt": "Read this chapter with excitement and wonder, as if discovering something new.",
+      "text": "It was a bright morning when Sarah decided to embark on her greatest adventure yet. The sun cast golden rays across the valley, illuminating a path she had never noticed before. With her backpack slung over her shoulder and determination in her heart, she took her first step into the unknown."
+    },
+    {
+      "id": 2,
+      "label": "Chapter 2: The Mysterious Forest",
+      "style_prompt": "",
+      "text": "The forest grew darker as Sarah ventured deeper into its depths. Ancient trees towered overhead, their branches forming a canopy that filtered the sunlight into soft, dappled patterns on the forest floor. Strange sounds echoed in the distance, both exciting and slightly unsettling."
+    },
+    {
+      "id": 3,
+      "label": "Chapter 3: Discovery",
+      "style_prompt": "Narrate with a sense of awe and revelation.",
+      "text": "At the heart of the forest, Sarah discovered something extraordinary. A clearing opened before her, revealing a structure unlike anything she had ever seen. It seemed to shimmer in the filtered light, ancient yet somehow timeless, waiting for someone brave enough to uncover its secrets."
+    }
+  ]
+}

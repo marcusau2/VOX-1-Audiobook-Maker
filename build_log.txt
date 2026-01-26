@@ -1,0 +1,204 @@
+1295 INFO: PyInstaller: 6.18.0, contrib hooks: 2026.0
+1295 INFO: Python: 3.10.8
+1303 INFO: Platform: Windows-10-10.0.26100-SP0
+1303 INFO: Python environment: C:\Users\marcj\AppData\Local\Programs\Python\Python310
+1303 INFO: wrote E:\Gemini Projects\Audiobook Maker\Vox-1.spec
+1306 INFO: Removing temporary files and cleaning cache in C:\Users\marcj\AppData\Local\pyinstaller
+1315 INFO: Module search paths (PYTHONPATH):
+['E:\\Gemini Projects\\Audiobook Maker',
+ 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\python310.zip',
+ 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\DLLs',
+ 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib',
+ 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310',
+ 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages',
+ 'E:\\Gemini Projects\\Audiobook Maker']
+1494 INFO: Appending 'datas' from .spec
+1498 INFO: checking Analysis
+1498 INFO: Building Analysis because Analysis-00.toc is non existent
+1498 INFO: Looking for Python shared library...
+1498 INFO: Using Python shared library: C:\Users\marcj\AppData\Local\Programs\Python\Python310\python310.dll
+1498 INFO: Running Analysis Analysis-00.toc
+1498 INFO: Target bytecode optimization level: 0
+1498 INFO: Initializing module dependency graph...
+1498 INFO: Initializing module graph hook caches...
+1506 INFO: Analyzing modules for base_library.zip ...
+1825 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+1855 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+2556 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+3106 INFO: Caching module dependency graph...
+3129 INFO: Analyzing E:\Gemini Projects\Audiobook Maker\app.py
+3137 INFO: Processing standard module hook 'hook-customtkinter.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+3169 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+3169 INFO: TclTkInfo: initializing cached Tcl/Tk info...
+3550 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+3566 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+3582 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+3582 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+3582 INFO: SetuptoolsInfo: initializing cached setuptools info...
+3853 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+3978 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+4043 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+4407 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+4486 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+4639 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+4852 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+5280 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+5565 INFO: Processing standard module hook 'hook-psutil.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+6094 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+6295 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+6421 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+6661 INFO: Processing standard module hook 'hook-torch.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+1040 WARNING: Failed to collect submodules for 'torch.utils.tensorboard' because importing 'torch.utils.tensorboard' raised: ModuleNotFoundError: No module named 'tensorboard'
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: DeprecationWarning: `TorchScript` support for functional optimizers is deprecated and will be removed in a future PyTorch release. Consider using the `torch.compile` optimizer instead.
+  __import__(name)
+W0124 20:25:05.295000 28972 site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: DeprecationWarning: `torch.distributed._sharding_spec` will be deprecated, use `torch.distributed._shard.sharding_spec` instead
+  __import__(name)
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: DeprecationWarning: `torch.distributed._sharded_tensor` will be deprecated, use `torch.distributed._shard.sharded_tensor` instead
+  __import__(name)
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: DeprecationWarning: `torch.distributed._shard.checkpoint` will be deprecated, use `torch.distributed.checkpoint` instead
+  __import__(name)
+12768 INFO: hook-torch: this torch build does not depend on MKL...
+17049 INFO: Processing standard module hook 'hook-scipy.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+17381 INFO: Processing standard module hook 'hook-pycparser.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+17428 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+17428 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17428 INFO: Processing pre-find-module-path hook 'hook-distutils.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+17696 INFO: Processing standard module hook 'hook-distutils.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+17728 INFO: Processing standard module hook 'hook-distutils.util.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+17728 INFO: Processing standard module hook 'hook-_osx_support.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+17807 INFO: Processing standard module hook 'hook-pkg_resources.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+18328 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18863 INFO: Processing standard module hook 'hook-scipy.linalg.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+19177 INFO: Processing standard module hook 'hook-scipy.sparse.csgraph.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+19209 INFO: Processing standard module hook 'hook-scipy.special._ufuncs.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+19256 INFO: Processing standard module hook 'hook-scipy.special._ellip_harm_2.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+19587 INFO: Processing standard module hook 'hook-scipy.spatial._ckdtree.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+19728 INFO: Processing standard module hook 'hook-scipy.spatial.transform.rotation.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+20089 INFO: Processing standard module hook 'hook-scipy.stats._stats.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+22436 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+22531 INFO: Processing standard module hook 'hook-lxml.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+22689 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+23905 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+24940 INFO: Processing standard module hook 'hook-pandas.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+25603 INFO: Processing standard module hook 'hook-pytz.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+26517 INFO: Processing standard module hook 'hook-numba.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+26517 INFO: Processing standard module hook 'hook-llvmlite.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+26723 INFO: Processing standard module hook 'hook-pygments.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+28300 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+29293 INFO: Processing pre-safe-import-module hook 'hook-win32com.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+30175 INFO: Processing standard module hook 'hook-pandas.io.formats.style.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+31281 INFO: Processing standard module hook 'hook-pandas.plotting.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+31644 INFO: Processing standard module hook 'hook-pandas.io.clipboard.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+31754 INFO: Processing standard module hook 'hook-dateutil.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+32007 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+32102 INFO: Processing standard module hook 'hook-fsspec.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+32339 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+32623 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+34151 INFO: Processing standard module hook 'hook-transformers.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+36059 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+36295 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+36374 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+37274 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+38093 INFO: Processing standard module hook 'hook-anyio.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+38552 INFO: Processing standard module hook 'hook-orjson.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+39922 INFO: Processing standard module hook 'hook-uvicorn.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+41246 INFO: Processing standard module hook 'hook-onnxruntime.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+41278 INFO: Processing pre-safe-import-module hook 'hook-tensorflow.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+44726 INFO: Processing standard module hook 'hook-torchaudio.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+47341 INFO: Processing standard module hook 'hook-soundfile.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+47845 INFO: Processing standard module hook 'hook-scipy.io.matlab.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+48886 INFO: Processing standard module hook 'hook-librosa.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+49166 INFO: Processing standard module hook 'hook-regex.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+51453 INFO: Processing standard module hook 'hook-sklearn.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+51831 INFO: Processing standard module hook 'hook-sklearn.utils.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+52020 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.numpy.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+52051 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.cupy.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+52051 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.torch.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+52067 INFO: Processing standard module hook 'hook-sklearn.externals.array_api_compat.dask.array.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+52130 INFO: Processing standard module hook 'hook-sklearn.metrics.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+53549 INFO: Processing standard module hook 'hook-sklearn.metrics.cluster.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+53944 INFO: Processing standard module hook 'hook-sklearn.cluster.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+53960 INFO: Processing standard module hook 'hook-sklearn.metrics.pairwise.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+54071 INFO: Processing standard module hook 'hook-sklearn.neighbors.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+54119 INFO: Processing standard module hook 'hook-sklearn.linear_model.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+69083 INFO: Processing pre-safe-import-module hook 'hook-platformdirs.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+69098 INFO: Processing standard module hook 'hook-platformdirs.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+69194 INFO: Analyzing hidden import 'sklearn.utils._typedefs'
+69194 INFO: Analyzing hidden import 'sklearn.neighbors._partition_nodes'
+69194 INFO: Processing module hooks (post-graph stage)...
+69541 INFO: Processing pre-safe-import-module hook 'hook-gi.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+69872 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+69872 WARNING: Hidden import "pycparser.lextab" not found!
+69872 WARNING: Hidden import "pycparser.yacctab" not found!
+69903 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+69935 INFO: Processing standard module hook 'hook-sklearn.tree.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+73227 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+74563 WARNING: Hidden import "scipy.special._cdflib" not found!
+74578 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+74767 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+75105 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks'
+75105 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+75105 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+75594 INFO: Performing binary vs. data reclassification (2809 entries)
+75719 INFO: Looking for ctypes DLLs
+75719 WARNING: Ignoring AppKit.framework/AppKit imported from C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\darkdetect\_mac_detect.py - only basenames are supported with ctypes imports!
+75766 WARNING: Ignoring /usr/lib64/libgomp.so.1 imported from C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\_inductor\codecache.py - only basenames are supported with ctypes imports!
+75876 INFO: Analyzing run-time hooks ...
+75907 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75907 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75907 INFO: Including run-time hook 'pyi_rth_pkgres.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75923 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75923 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+75923 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+76080 INFO: Creating base_library.zip...
+76095 INFO: Looking for dynamic libraries
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\torch\distributed\algorithms\_optimizer_overlap\optimizer_overlap.py:12: DeprecationWarning: `TorchScript` support for functional optimizers is deprecated and will be removed in a future PyTorch release. Consider using the `torch.compile` optimizer instead.
+  from torch.distributed.optim import as_functional_optim
+W0124 20:26:15.666000 30832 site-packages\torch\distributed\elastic\multiprocessing\redirects.py:29] NOTE: Redirects are currently not supported in Windows or MacOs.
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\building\build_main.py:227: DeprecationWarning: `torch.distributed._sharding_spec` will be deprecated, use `torch.distributed._shard.sharding_spec` instead
+  __import__(package)
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\building\build_main.py:227: DeprecationWarning: `torch.distributed._sharded_tensor` will be deprecated, use `torch.distributed._shard.sharded_tensor` instead
+  __import__(package)
+C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\building\build_main.py:227: DeprecationWarning: `torch.distributed._shard.checkpoint` will be deprecated, use `torch.distributed.checkpoint` instead
+  __import__(package)
+
+********
+Warning: flash-attn is not installed. Will only run the manual PyTorch version. Please install flash-attn for faster inference.
+********
+ 
+83898 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\numpy.libs', 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\scipy.libs', 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pandas.libs', 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\torch\\lib', 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\llvmlite.libs']
+83898 INFO: Extra DLL search directories (PATH): []
+86579 WARNING: Library not found: could not resolve 'tbb12.dll', dependency of 'C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\numba\\np\\ufunc\\tbbpool.cp310-win_amd64.pyd'.
+86800 INFO: Warnings written to E:\Gemini Projects\Audiobook Maker\build\Vox-1\warn-Vox-1.txt
+87523 INFO: Graph cross-reference written to E:\Gemini Projects\Audiobook Maker\build\Vox-1\xref-Vox-1.html
+87737 INFO: checking PYZ
+87737 INFO: Building PYZ because PYZ-00.toc is non existent
+87737 INFO: Building PYZ (ZlibArchive) E:\Gemini Projects\Audiobook Maker\build\Vox-1\PYZ-00.pyz
+91422 INFO: Building PYZ (ZlibArchive) E:\Gemini Projects\Audiobook Maker\build\Vox-1\PYZ-00.pyz completed successfully.
+91532 INFO: checking PKG
+91532 INFO: Building PKG because PKG-00.toc is non existent
+91532 INFO: Building PKG (CArchive) Vox-1.pkg
+91580 INFO: Building PKG (CArchive) Vox-1.pkg completed successfully.
+91580 INFO: Bootloader C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+91580 INFO: checking EXE
+91580 INFO: Building EXE because EXE-00.toc is non existent
+91580 INFO: Building EXE from EXE-00.toc
+91580 INFO: Copying bootloader EXE to E:\Gemini Projects\Audiobook Maker\build\Vox-1\Vox-1.exe
+91580 INFO: Copying icon to EXE
+91580 INFO: Copying 0 resources to EXE
+91580 INFO: Embedding manifest in EXE
+91580 INFO: Appending PKG archive to EXE
+91595 INFO: Fixing EXE headers
+91895 INFO: Building EXE from EXE-00.toc completed successfully.
+92100 INFO: checking COLLECT
+92100 INFO: Building COLLECT because COLLECT-00.toc is non existent
+92100 INFO: Removing dir E:\Gemini Projects\Audiobook Maker\dist\Vox-1
+93332 INFO: Building COLLECT COLLECT-00.toc
+106121 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+106210 INFO: Build complete! The results are available in: E:\Gemini Projects\Audiobook Maker\dist
+CustomTkinter found at: C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\customtkinter
+Whisper found at: C:\Users\marcj\AppData\Local\Programs\Python\Python310\lib\site-packages\whisper
+ffmpeg bundle found at: E:\Gemini Projects\Audiobook Maker\ffmpeg_bundle
+Starting PyInstaller build...
+Command args: ['app.py', '--name=Vox-1', '--noconfirm', '--onedir', '--windowed', '--clean', '--add-data=C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\customtkinter;customtkinter/', '--add-data=C:\\Users\\marcj\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\whisper\\assets;whisper/assets/', '--add-data=E:\\Gemini Projects\\Audiobook Maker\\ffmpeg_bundle;ffmpeg_bundle/', '--hidden-import=torch', '--hidden-import=torchaudio', '--hidden-import=whisper', '--hidden-import=soundfile', '--hidden-import=qwen_tts', '--hidden-import=pydub', '--hidden-import=ebooklib', '--hidden-import=bs4', '--hidden-import=lxml', '--hidden-import=lxml.etree', '--hidden-import=cffi', '--hidden-import=sklearn.utils._typedefs', '--hidden-import=sklearn.neighbors._partition_nodes', '--exclude-module=matplotlib', '--exclude-module=ipython']

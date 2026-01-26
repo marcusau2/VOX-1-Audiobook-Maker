@@ -1,0 +1,14 @@
+torch
+torchaudio
+transformers>=4.51.0
+librosa
+soundfile
+accelerate
+numpy
+einops
+tiktoken
+sentencepiece
+sox
+huggingface_hub
+onnxruntime
+onnxruntime-gpu
