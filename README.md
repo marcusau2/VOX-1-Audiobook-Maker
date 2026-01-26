@@ -216,7 +216,7 @@ See [MANUAL_INSTALL.md](MANUAL_INSTALL.md) for detailed instructions.
 
 ## 📄 License
 
-Apache 2.0
+This project is licensed under the Apache License 2.0.
 
 ---
 
