@@ -70,10 +70,20 @@ if (-not (Test-Path "$PythonSystemDir\python.exe")) {
     $GetPipPath = Join-Path $RootDir "get-pip.py"
     Download-File -Url $GetPipUrl -OutputPath $GetPipPath
     
-    & "$PythonSystemDir\python.exe" $GetPipPath --no-warn-script-location
+    # Use isolated mode and trusted hosts to avoid network/config issues
+    $PipArgs = @(
+        "$GetPipPath",
+        "--no-warn-script-location",
+        "--isolated",
+        "--trusted-host", "pypi.org",
+        "--trusted-host", "pypi.python.org",
+        "--trusted-host", "files.pythonhosted.org"
+    )
     
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to install pip."
+    $Process = Start-Process -FilePath "$PythonSystemDir\python.exe" -ArgumentList $PipArgs -Wait -PassThru
+    
+    if ($Process.ExitCode -ne 0) {
+        Write-Error "Failed to install pip. Exit code: $($Process.ExitCode)"
     }
     Remove-Item $GetPipPath -Force
 
