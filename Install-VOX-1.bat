@@ -1,6 +1,13 @@
-@echo off
+@echo on
 setlocal enabledelayedexpansion
 
+REM Call main routine and ensure pause happens even if script exits early
+call :main
+pause
+goto :eof
+
+:main
+@echo off
 REM ============================================
 REM VOX-1 Audiobook Maker - Installer
 REM ============================================
@@ -121,9 +128,12 @@ if exist "python310\python.exe" (
     echo This may take 1-2 minutes...
     echo.
 
-    REM Run installer and wait for completion
-    REM Using short paths to avoid issues with spaces
-    python-installer.exe /quiet /wait InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="%~dp0python310"
+    REM Run installer with CORRECT syntax (spaces between parameters!)
+    REM Use /passive to see progress instead of /quiet
+    python-installer.exe /passive InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="%~dp0python310"
+
+    REM Wait for installer to complete
+    timeout /t 5 /nobreak >nul
 
     echo.
     echo Verifying Python installation...
@@ -335,4 +345,4 @@ if exist "START_HERE.txt" (
 
 echo Installation complete!
 echo.
-pause
+exit /b 0
