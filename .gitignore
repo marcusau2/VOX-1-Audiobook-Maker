@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# Installation artifacts (these are downloaded during installation)
+python310/
+ComfyUI-Qwen-TTS/
+
+# Output directories
+Output/
+VOX-Output/
+temp_work/
+ffmpeg_bundle/
+
+# Test folders
+Vox_Test/
+Vox_Test2/
+
+# Models (downloaded automatically on first use)
+*.ckpt
+*.pth
+*.safetensors
+models/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+test-download.bat
+
+# Documentation archive
+docs_archive/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project documentation files (not needed in repo)
+*HANDOFF*.md
+*SESSION*.md
+*STATUS*.md
+*CLEANUP*.md
+*REVERT*.md
+*CREATION*.md
+LAUNCHER_GUIDE.md
+PORTABLE_VERSION_GUIDE.md
+PUSH_TO_GITHUB.txt
+build_log.txt
+README_UPDATED_BUILD.txt
+GITHUB_SETUP.md
+PROJECT_STATUS.md
+build.py
+test_imports.py

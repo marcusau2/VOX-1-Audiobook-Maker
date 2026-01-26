@@ -1,0 +1,61 @@
+============================================
+  VOX-1 Audiobook Maker - Quick Start Guide
+============================================
+
+CONGRATULATIONS! VOX-1 is now installed.
+
+============================================
+HOW TO USE VOX-1:
+============================================
+
+1. LAUNCH THE APP:
+   Double-click: RUN-VOX-1.bat
+
+   The app will open in your web browser.
+   Keep the console window open while using VOX-1!
+
+2. CONVERT TEXT TO AUDIO:
+   - Click "Browse" and select your .txt file
+   - Choose voice settings (optional)
+   - Click "Generate Audiobook"
+   - Wait for processing to complete
+   - Your audiobook will be in the VOX-Output folder
+
+============================================
+SYSTEM REQUIREMENTS:
+============================================
+
+- NVIDIA GPU with 8GB+ VRAM (required)
+- Windows 10/11
+- Internet connection (first run only - downloads AI models)
+
+============================================
+NEED HELP?
+============================================
+
+Read the full guide: USER_GUIDE.txt
+
+Common issues:
+- "CUDA error": Your GPU doesn't have enough VRAM
+- App won't start: Run Launch-Debug.bat to see error details
+- Slow performance: Close other GPU-intensive programs
+
+============================================
+MODELS:
+============================================
+
+On first use, VOX-1 will download AI models (~11 GB).
+This is automatic and only happens once.
+
+============================================
+TIPS:
+============================================
+
+- Keep the console window open while using the app
+- The app saves your settings automatically
+- Processing time depends on text length and GPU speed
+- Output files are in: VOX-Output\
+
+============================================
+
+Enjoy creating audiobooks with VOX-1!
