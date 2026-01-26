@@ -58,6 +58,40 @@ The first time you use each feature, AI models download automatically:
 
 ---
 
+## 🔄 Updating VOX-1
+
+### Option 1: Auto-Update (Git Method) - Recommended
+
+If you want automatic updates:
+
+1. **Install Git**: Download from [git-scm.com](https://git-scm.com/download/win)
+2. **Clone repository** instead of downloading ZIP:
+   ```bash
+   git clone https://github.com/marcusau2/VOX-1-Audiobook-Maker.git
+   cd VOX-1-Audiobook-Maker
+   Install-VOX-1.bat
+   ```
+3. **Future updates**: Just double-click `UPDATE-VOX-1.bat`
+
+### Option 2: Manual Update (ZIP Method)
+
+If you downloaded as ZIP:
+
+1. **Back up your data** (copy these folders):
+   - `Output/` - Your generated audiobooks
+   - `VOX-Output/` - Master voices
+   - `user_settings.json` - Your settings
+   - `models/` - Optional (8GB, saves re-download time)
+
+2. **Download latest ZIP** from GitHub
+3. **Extract** to a new location
+4. **Copy back** your backed-up folders
+5. **Run** `Install-VOX-1.bat` to update dependencies
+
+**Note:** Your audiobooks and settings are never deleted during updates!
+
+---
+
 ## 💻 System Requirements
 
 - **OS:** Windows 10/11 64-bit
@@ -116,10 +150,11 @@ Adjust in **Advanced Settings** tab:
 ```
 Your-Project-Folder/
 ├── RUN-VOX-1.bat              # ⭐ DOUBLE-CLICK THIS TO START
+├── UPDATE-VOX-1.bat           # ⭐ Check for and install updates
 ├── START_HERE.txt             # Quick start guide (opens after install)
 ├── USER_GUIDE.txt             # Complete user manual
 ├── Launch-Debug.bat           # For troubleshooting
-├── Install-VOX-1.bat          # Installer (can run again to update)
+├── Install-VOX-1.bat          # Installer (re-run to fix dependencies)
 ├── python310/                 # Python environment
 ├── models/                    # AI models cache (~8-10 GB after first run)
 ├── app/                       # VOX-1 application
