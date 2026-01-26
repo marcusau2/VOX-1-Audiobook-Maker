@@ -55,8 +55,9 @@ temp_work/
 # Models and checkpoints
 models/
 checkpoints/
-ComfyUI-Qwen-TTS/models/
-ComfyUI-Qwen-TTS/checkpoints/
+
+# ComfyUI-Qwen-TTS (downloaded during installation, not in repo)
+ComfyUI-Qwen-TTS/
 
 # User settings (keep template, ignore user customizations)
 user_settings.json

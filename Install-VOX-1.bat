@@ -122,9 +122,24 @@ echo Organizing files...
 mkdir app 2>nul
 xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\*.py" "app\" >nul
 xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\booksmith_module" "app\booksmith_module\" >nul
-xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\ComfyUI-Qwen-TTS" "app\ComfyUI-Qwen-TTS\" >nul
 copy /Y "temp\VOX-1-Audiobook-Maker-main\requirements.txt" "app\requirements.txt" >nul
 copy /Y "temp\VOX-1-Audiobook-Maker-main\*.md" "app\" >nul 2>nul
+
+REM Download ComfyUI-Qwen-TTS library
+echo Downloading TTS library (ComfyUI-Qwen-TTS)...
+powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/flybirdxx/ComfyUI-Qwen-TTS/archive/refs/heads/main.zip' -OutFile 'comfyui-tts.zip'}"
+
+if errorlevel 1 (
+    echo WARNING: Failed to download TTS library!
+    echo The app will not work without this.
+    pause
+    exit /b 1
+)
+
+powershell -Command "& {Expand-Archive -Path 'comfyui-tts.zip' -DestinationPath 'temp_tts' -Force}"
+xcopy /E /I /Y "temp_tts\ComfyUI-Qwen-TTS-main" "app\ComfyUI-Qwen-TTS\" >nul
+rmdir /S /Q temp_tts 2>nul
+del comfyui-tts.zip 2>nul
 
 REM Create output directories
 mkdir "app\Output" 2>nul
