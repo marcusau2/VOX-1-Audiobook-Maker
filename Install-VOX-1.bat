@@ -190,23 +190,107 @@ if errorlevel 1 (
 )
 
 REM ============================================
-echo Creating launcher...
+echo Creating launchers and guides...
 echo ============================================
 
-REM Create VBS launcher
-(
-    echo Set WshShell = CreateObject^("WScript.Shell"^)
-    echo WshShell.CurrentDirectory = CreateObject^("Scripting.FileSystemObject"^).GetParentFolderName^(WScript.ScriptFullName^)
-    echo WshShell.Run "python310\python.exe app\app.py", 0, False
-) > "Launch-VOX-1.vbs"
-
-REM Create BAT launcher for debugging
+REM Create main launcher - RUN VOX-1.bat
 (
     echo @echo off
+    echo echo ============================================
+    echo echo    VOX-1 Audiobook Maker
+    echo echo ============================================
+    echo echo.
+    echo echo Starting VOX-1...
+    echo echo The app will open in your browser.
+    echo echo.
+    echo echo IMPORTANT: Keep this window open while using VOX-1!
+    echo echo            Closing this window will stop the app.
+    echo echo.
+    echo echo ============================================
+    echo echo.
     echo cd /d "%%~dp0"
     echo python310\python.exe app\app.py
+    echo echo.
+    echo echo VOX-1 has stopped.
     echo pause
-) > "Launch-VOX-1-Debug.bat"
+) > "RUN VOX-1.bat"
+
+REM Create debug launcher
+(
+    echo @echo off
+    echo echo Debug Mode - You will see detailed error messages
+    echo echo.
+    echo cd /d "%%~dp0"
+    echo python310\python.exe app\app.py
+    echo echo.
+    echo echo Press any key to close...
+    echo pause
+) > "Launch-Debug.bat"
+
+REM Create START HERE guide
+(
+    echo ==========================================
+    echo    VOX-1 AUDIOBOOK MAKER - START HERE
+    echo ==========================================
+    echo.
+    echo CONGRATULATIONS! VOX-1 is installed and ready to use.
+    echo.
+    echo ==========================================
+    echo QUICK START:
+    echo ==========================================
+    echo.
+    echo 1. Double-click: RUN VOX-1.bat
+    echo    ^(The app will open in your browser^)
+    echo.
+    echo 2. Read the User Guide: USER_GUIDE.txt
+    echo    ^(Complete instructions for beginners^)
+    echo.
+    echo 3. Keep the black console window open
+    echo    ^(Closing it will stop VOX-1^)
+    echo.
+    echo ==========================================
+    echo WHAT TO DO FIRST:
+    echo ==========================================
+    echo.
+    echo In the VOX-1 app ^(browser^):
+    echo.
+    echo 1. Go to "The Lab" tab
+    echo    - Create a voice or clone one from audio
+    echo    - Click "Save as Master Voice"
+    echo.
+    echo 2. Go to "Studio" tab
+    echo    - Load your saved voice
+    echo    - Load a text file ^(TXT or JSON^)
+    echo    - Click "Render Audiobook"
+    echo.
+    echo 3. Find your audiobook in: VOX-Output\ folder
+    echo.
+    echo ==========================================
+    echo FILES IN THIS FOLDER:
+    echo ==========================================
+    echo.
+    echo RUN VOX-1.bat       - Start the app ^(USE THIS^)
+    echo USER_GUIDE.txt      - Full instructions
+    echo Launch-Debug.bat    - For troubleshooting
+    echo app\                - Application files
+    echo VOX-Output\         - Your finished audiobooks
+    echo.
+    echo ==========================================
+    echo NEED HELP?
+    echo ==========================================
+    echo.
+    echo - Read USER_GUIDE.txt for detailed instructions
+    echo - Check the activity log in the app for errors
+    echo - Visit: https://github.com/marcusau2/VOX-1-Audiobook-Maker
+    echo.
+    echo ==========================================
+    echo.
+    echo Ready to create audiobooks? Double-click RUN VOX-1.bat
+    echo.
+) > "START_HERE.txt"
+
+REM Copy user guide from app folder to root for easy access
+copy /Y "app\USER_GUIDE.md" "USER_GUIDE.txt" >nul 2>nul
 
 echo Done.
 echo.
@@ -220,18 +304,33 @@ echo.
 echo VOX-1 has been installed in:
 echo %CD%
 echo.
-echo To launch VOX-1:
-echo   Double-click: Launch-VOX-1.vbs
+echo ============================================
+echo NEXT STEPS:
+echo ============================================
 echo.
-echo For debugging (shows console):
-echo   Double-click: Launch-VOX-1-Debug.bat
+echo 1. Read: START_HERE.txt (opening now...)
+echo.
+echo 2. To launch VOX-1:
+echo    Double-click: RUN VOX-1.bat
+echo.
+echo 3. For help:
+echo    Read: USER_GUIDE.txt
+echo.
+echo ============================================
 echo.
 echo The app will open in your web browser.
+echo Keep the console window open while using VOX-1!
 echo.
 echo System Requirements:
 echo - NVIDIA GPU with 8GB+ VRAM
 echo - Windows 10/11
 echo.
-echo For help, see: app\README.md
+echo ============================================
+echo.
+
+REM Open START_HERE.txt automatically
+start "" "START_HERE.txt"
+
+echo Opening START_HERE.txt...
 echo.
 pause
