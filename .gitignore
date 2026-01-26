@@ -58,6 +58,9 @@ dist/
 *.swp
 *.swo
 
+# Claude Code metadata
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -78,3 +81,13 @@ GITHUB_SETUP.md
 PROJECT_STATUS.md
 build.py
 test_imports.py
+
+# Internal handoff and fix documentation (for Claude/development only)
+Handoff.txt
+handoff.txt
+VRAM_FIX_INFO.txt
+VRAM_GROWTH_FIX.txt
+*_FIX_INFO.txt
+*_GROWTH_FIX.txt
+
+# Note: START_HERE.txt is user-facing and should be kept in repo
