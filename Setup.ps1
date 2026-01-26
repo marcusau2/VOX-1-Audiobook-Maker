@@ -97,6 +97,10 @@ if (-not (Test-Path "$PythonSystemDir\python.exe")) {
     }
     Remove-Item $GetPipPath -Force
 
+    # CRITICAL: Install setuptools and wheel first to allow building from source
+    Write-Host "Installing build tools (setuptools, wheel)..." -ForegroundColor Cyan
+    & "$PythonSystemDir\python.exe" -m pip install --upgrade setuptools wheel --isolated --no-warn-script-location
+
 } else {
     Write-Host "Python already installed." -ForegroundColor Green
 }
