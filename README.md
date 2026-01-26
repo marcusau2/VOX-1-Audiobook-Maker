@@ -2,6 +2,8 @@
 
 GPU-accelerated audiobook generator using Qwen2-TTS models. Create professional-quality audiobooks with natural-sounding speech, batch processing, and automatic chapter management.
 
+![VOX-1 Interface](Github_Screenshot.png)
+
 ---
 
 ## 🚀 Quick Install (Recommended)

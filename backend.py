@@ -16,59 +16,6 @@ import subprocess
 import json
 
 # ============================================================================
-# ATTENTION MECHANISM DETECTION (Optional Performance Enhancement)
-# ============================================================================
-
-def check_sage_attn_available():
-    """
-    Check if sage-attn is installed (fastest option, 2-3x speedup).
-    Returns True if available, False otherwise.
-    """
-    try:
-        import sageattention
-        return True
-    except (ImportError, ValueError, OSError):
-        # ValueError/OSError: Triton JIT doesn't work in PyInstaller
-        return False
-
-def check_flash_attn_available():
-    """
-    Check if flash-attn is installed (optional 3x speedup).
-    Returns True if available, False otherwise.
-    """
-    try:
-        import flash_attn
-        return True
-    except ImportError:
-        return False
-
-def check_available_attention_modes():
-    """
-    Returns list of available attention implementations in priority order.
-    Priority: sage_attn > flash_attn > sdpa > eager
-    """
-    available = []
-
-    # Check for sage_attn (fastest, requires manual install)
-    if check_sage_attn_available():
-        available.append("sage_attn")
-
-    # Check for flash_attn (fast, requires manual install)
-    if check_flash_attn_available():
-        available.append("flash_attn")
-
-    # PyTorch built-ins (always available)
-    available.append("sdpa")  # Scaled Dot Product Attention (PyTorch 2.0+)
-    available.append("eager")  # Standard attention (always works)
-
-    return available
-
-# Detect available attention modes at module load
-HAS_SAGE_ATTN = check_sage_attn_available()
-HAS_FLASH_ATTN = check_flash_attn_available()
-AVAILABLE_ATTENTION_MODES = check_available_attention_modes()
-
-# ============================================================================
 # SMART IMPORT FEATURE
 # ============================================================================
 
@@ -281,10 +228,10 @@ class AudioEngine:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.log(f"Initializing AudioEngine on {self.device}...")
 
-        # Enable cudnn benchmarking for faster inference with consistent tensor sizes
+        # Disable cudnn benchmarking - it can use excessive VRAM for workspace buffers
         if self.device == "cuda":
-            torch.backends.cudnn.benchmark = True
-            self.log("Enabled cuDNN benchmarking for faster inference")
+            torch.backends.cudnn.benchmark = False
+            # self.log("Enabled cuDNN benchmarking for faster inference")
 
             # Detect GPU VRAM and provide recommendations
             self._check_vram_and_recommend()
@@ -339,17 +286,19 @@ class AudioEngine:
     def _suggest_batch_size(self, total_vram_gb):
         """
         Suggest optimal batch size based on total VRAM.
-        Conservative recommendations to work with display apps and background processes.
+        More aggressive scaling for high-end GPUs to maximize throughput.
         """
-        if total_vram_gb >= 20:  # 4090 (24GB), A5000, etc.
-            return 10
-        elif total_vram_gb >= 14:  # 4080 (16GB), 3090 Ti
-            return 5
-        elif total_vram_gb >= 10:  # 4070 Ti (12GB), 3060 12GB
+        if total_vram_gb >= 22:  # 4090 (24GB), 3090 (24GB)
+            return 32
+        elif total_vram_gb >= 16:  # 4080 (16GB), 4070 Ti Super (16GB)
+            return 20
+        elif total_vram_gb >= 11:  # 4070 Ti (12GB), 3080 Ti (12GB), 3060 (12GB)
+            return 12
+        elif total_vram_gb >= 7:   # 3070 (8GB), 3060 Ti (8GB)
+            return 6
+        elif total_vram_gb >= 5:   # 6GB cards
             return 3
-        elif total_vram_gb >= 6:   # 3060 (8GB), 4060 Ti
-            return 2
-        else:  # 6GB or less
+        else:  # 4GB or less
             return 1
 
     def _setup_ffmpeg(self):
@@ -446,8 +395,11 @@ class AudioEngine:
             allocated = torch.cuda.memory_allocated() / 1024**3
             reserved = torch.cuda.memory_reserved() / 1024**3
             total = torch.cuda.get_device_properties(0).total_memory / 1024**3
-            percent = (allocated / total) * 100
-            self.log(f"[{stage}] VRAM: {allocated:.2f}GB / {total:.1f}GB ({percent:.0f}%)")
+            
+            # Utilization is based on Reserved (actual footprint)
+            percent = (reserved / total) * 100
+            
+            self.log(f"[{stage}] VRAM: Alloc {allocated:.2f}GB | Rsrv {reserved:.2f}GB / {total:.1f}GB ({percent:.0f}%)")
 
     def _check_vram_available(self, required_gb=2.0):
         """Check if enough VRAM is available for next operation."""
@@ -1683,7 +1635,10 @@ class AudioEngine:
                             allocated = torch.cuda.memory_allocated() / 1024**3
                             total = torch.cuda.get_device_properties(0).total_memory / 1024**3
                             percent = (allocated / total) * 100
-                            self.log(f"[{timestamp}] Chunks {chunk_range}/{chunk_count} done in {duration:.2f}s ({duration/len(batch_chunks):.2f}s/chunk) | VRAM: {allocated:.2f}/{total:.1f}GB ({percent:.0f}%)")
+                            self.log(f"[{timestamp}] Chunks {chunk_range}/{chunk_count} done in {duration:.2f}s ({duration/len(batch_chunks):.2f}s/chunk) | VRAM: {allocated:.2f}GB")
+                            
+                            # FORCE CLEANUP to prevent reserved memory fragmentation
+                            torch.cuda.empty_cache()
                         else:
                             self.log(f"[{timestamp}] Chunks {chunk_range}/{chunk_count} done in {duration:.2f}s ({duration/len(batch_chunks):.2f}s/chunk)")
 
