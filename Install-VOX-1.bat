@@ -11,8 +11,8 @@ REM - Extract it to a folder
 REM - Run this installer from that folder
 REM
 REM This script will:
-REM - Download Python 3.10 (embedded)
-REM - Install pip
+REM - Download Python 3.10 (full installer with tkinter)
+REM - Verify pip
 REM - Download FFmpeg
 REM - Install all Python dependencies
 REM
@@ -98,15 +98,15 @@ REM Change to script directory
 cd /d "%~dp0"
 
 REM ============================================
-echo [Step 1/4] Downloading Python 3.10 (~9 MB)...
+echo [Step 1/4] Downloading Python 3.10 (~25 MB)...
 echo ============================================
 echo.
 
 if exist "python310\python.exe" (
     echo Python 3.10 already installed.
 ) else (
-    echo Downloading Python 3.10.11 embedded...
-    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip' -OutFile 'python.zip'"
+    echo Downloading Python 3.10.11 (full installer with tkinter)...
+    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe' -OutFile 'python-installer.exe'"
 
     if %ERRORLEVEL% NEQ 0 (
         echo.
@@ -117,73 +117,54 @@ if exist "python310\python.exe" (
         exit /b 1
     )
 
-    echo Extracting Python...
-    powershell -Command "Expand-Archive -Path 'python.zip' -DestinationPath 'python310' -Force"
+    echo Installing Python to python310 folder...
+    echo This may take a minute...
+    python-installer.exe /quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir="%CD%\python310"
 
     if %ERRORLEVEL% NEQ 0 (
         echo.
-        echo ERROR: Failed to extract Python!
+        echo ERROR: Failed to install Python!
         echo.
         pause
         exit /b 1
     )
 
-    del python.zip
+    del python-installer.exe
     echo Python installed successfully.
 )
 echo.
 
 REM ============================================
-echo [Step 2/4] Configuring Python environment...
+echo [Step 2/4] Verifying Python installation...
 echo ============================================
 echo.
 
-if exist "python310\python310._pth" (
-    (
-        echo python310.zip
-        echo .
-        echo ..
-        echo import site
-    ) > "python310\python310._pth"
-    echo Python environment configured.
+if exist "python310\python.exe" (
+    python310\python.exe --version
+    echo Python is ready!
 ) else (
-    echo WARNING: python310._pth not found, skipping configuration.
+    echo ERROR: Python installation failed!
+    pause
+    exit /b 1
 )
 echo.
 
 REM ============================================
-echo [Step 3/4] Installing pip...
+echo [Step 3/4] Verifying pip installation...
 echo ============================================
 echo.
 
-if not exist "python310\Scripts\pip.exe" (
-    echo Downloading pip installer...
+REM Full Python installer includes pip
+python310\python.exe -m pip --version
+
+if %ERRORLEVEL% NEQ 0 (
+    echo Pip not found, installing...
     powershell -Command "Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile 'get-pip.py'"
-
-    if %ERRORLEVEL% NEQ 0 (
-        echo.
-        echo ERROR: Failed to download pip installer!
-        echo.
-        pause
-        exit /b 1
-    )
-
-    echo Installing pip...
     python310\python.exe get-pip.py
-
-    if %ERRORLEVEL% NEQ 0 (
-        echo.
-        echo ERROR: Failed to install pip!
-        echo.
-        pause
-        exit /b 1
-    )
-
     del get-pip.py
-    echo Pip installed successfully.
-) else (
-    echo Pip already installed.
 )
+
+echo Pip is ready!
 echo.
 
 REM ============================================
