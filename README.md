@@ -41,12 +41,20 @@ The installer automatically downloads and sets up:
 - ✅ FFmpeg (audio processing, from GitHub)
 - ✅ PyTorch + CUDA (~2 GB)
 - ✅ All Python dependencies
-- ✅ TTS models (downloaded on first use)
 
-**Total size:** ~2.7 GB
+**Installation size:** ~2.7 GB
 **Installation time:** 10-15 minutes
-**Internet required:** Only during installation
-**Download speed:** Fast (GitHub CDN)
+
+### First Run - Additional Downloads
+
+The first time you use each feature, AI models download automatically:
+- **Voice Design:** ~3.4 GB (one-time)
+- **Voice Cloning:** ~3.4 GB (one-time)
+- **Audiobook Generation:** ~1.2 GB (one-time)
+
+**Total storage needed:** ~8-10 GB
+**Models cache to:** `C:\Users\YourName\.cache\huggingface\`
+**After first run:** Everything loads instantly from cache!
 
 ---
 

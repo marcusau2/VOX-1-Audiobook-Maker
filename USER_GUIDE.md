@@ -16,6 +16,40 @@ The app will open in your web browser (usually at http://127.0.0.1:7860)
 
 ---
 
+## ⚠️ First Run - Model Downloads
+
+**IMPORTANT:** The first time you use each feature, models will download automatically from Hugging Face.
+
+### What Downloads When:
+
+**First Voice Design** (~3.4 GB)
+- Model: Qwen3-TTS-1.7B-VoiceDesign
+- Takes: 5-10 minutes depending on internet speed
+- Downloads once, then cached forever
+
+**First Voice Clone** (~3.4 GB)
+- Model: Qwen3-TTS-1.7B-Base
+- Same size as design model
+- May already be cached if you designed a voice first
+
+**First Audiobook Generation** (~1.2 GB)
+- Model: Qwen3-TTS-0.6B-Base (faster, smaller)
+- Smaller and quicker to download
+
+**Total Storage:** ~5-8 GB for all models
+
+### Where Models Are Stored:
+`C:\Users\YourName\.cache\huggingface\hub\`
+
+You can delete this folder to free space, but models will re-download next time.
+
+### Progress Indication:
+You'll see download progress bars in the console window. The first use of each feature is slower - be patient!
+
+**After first download:** Everything runs instantly from cache!
+
+---
+
 ## 📖 Creating Your First Audiobook
 
 ### Step 1: Prepare Your Text
