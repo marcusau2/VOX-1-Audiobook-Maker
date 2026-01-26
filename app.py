@@ -7,6 +7,44 @@ import json
 import traceback
 from tkinter import filedialog, messagebox
 
+# ========================================================
+# EMBEDDED PYTHON SETUP (Fix for Tcl/Tk)
+# ========================================================
+# When running in embeddable Python, Tcl/Tk libs are often not found automatically.
+# We need to manually point to them.
+
+def setup_embedded_tkinter():
+    try:
+        # Find site-packages where tkinter-embed installed the libs
+        # usually .../Lib/site-packages
+        site_packages = next((p for p in sys.path if 'site-packages' in p), None)
+        
+        if not site_packages:
+            return
+
+        # Path to the tcl folder installed by tkinter-embed
+        tcl_root = os.path.join(site_packages, 'tcl')
+        
+        if os.path.exists(tcl_root):
+            # Set environment variables for Tcl/Tk
+            tcl_lib = os.path.join(tcl_root, 'tcl8.6')
+            tk_lib = os.path.join(tcl_root, 'tk8.6')
+            
+            if os.path.exists(tcl_lib) and os.path.exists(tk_lib):
+                os.environ['TCL_LIBRARY'] = tcl_lib
+                os.environ['TK_LIBRARY'] = tk_lib
+                # print(f"Set TCL_LIBRARY={tcl_lib}")
+                # print(f"Set TK_LIBRARY={tk_lib}")
+            
+            # Add site-packages to PATH so DLLs (tcl86t.dll, tk86t.dll) can be found
+            os.environ['PATH'] = site_packages + os.pathsep + os.environ['PATH']
+            
+    except Exception as e:
+        print(f"Warning: Failed to setup embedded Tkinter: {e}")
+
+setup_embedded_tkinter()
+# ========================================================
+
 # Ensure current directory is in path for embedded python
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
