@@ -240,9 +240,19 @@ class AudioEngine:
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.temp_dir = os.path.join(self.base_dir, "temp_work")
         self.output_dir = os.path.join(self.base_dir, "Output")
+        self.models_dir = os.path.join(self.base_dir, "models")
 
         os.makedirs(self.temp_dir, exist_ok=True)
         os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.models_dir, exist_ok=True)
+
+        # Set HuggingFace cache to local models folder (not C:\Users\...)
+        os.environ['HF_HOME'] = self.models_dir
+        os.environ['TRANSFORMERS_CACHE'] = self.models_dir
+        os.environ['HF_HUB_CACHE'] = self.models_dir
+        # Set Whisper cache to local models folder
+        os.environ['XDG_CACHE_HOME'] = self.models_dir
+        self.log(f"Models will be cached to: {self.models_dir}")
 
         # Setup ffmpeg with fallback (Option 3: check system first, use bundled as fallback)
         self._setup_ffmpeg()

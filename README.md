@@ -53,7 +53,7 @@ The first time you use each feature, AI models download automatically:
 - **Audiobook Generation:** ~1.2 GB (one-time)
 
 **Total storage needed:** ~8-10 GB
-**Models cache to:** `C:\Users\YourName\.cache\huggingface\`
+**Models cache to:** `Your-Project-Folder/models/` (kept with the app, not in C:\Users\)
 **After first run:** Everything loads instantly from cache!
 
 ---
@@ -121,6 +121,7 @@ Your-Project-Folder/
 ├── Launch-Debug.bat           # For troubleshooting
 ├── Install-VOX-1.bat          # Installer (can run again to update)
 ├── python310/                 # Python environment
+├── models/                    # AI models cache (~8-10 GB after first run)
 ├── app/                       # VOX-1 application
 │   ├── app.py                 # Main GUI
 │   ├── backend.py             # TTS engine

@@ -485,7 +485,7 @@ class Vox1App(ctk.CTk):
         batch_label.grid(row=0, column=0, sticky="w", pady=5)
 
         self.batch_size_var = ctk.IntVar(value=self.settings.get("batch_size", 3))
-        self.batch_slider = ctk.CTkSlider(batch_frame, from_=1, to=20, number_of_steps=19,
+        self.batch_slider = ctk.CTkSlider(batch_frame, from_=1, to=32, number_of_steps=31,
                                          variable=self.batch_size_var, command=self._update_batch_label)
         self.batch_slider.grid(row=1, column=0, sticky="ew", pady=5)
 
@@ -684,9 +684,19 @@ class Vox1App(ctk.CTk):
                 props = torch.cuda.get_device_properties(0)
                 total_vram_gb = props.total_memory / (1024**3)
 
-                # Conservative formula: suggest batch size based on VRAM
-                # 12GB GPU -> 5, 24GB GPU -> 10
-                suggested = min(20, max(1, int(total_vram_gb / 2.4)))
+                # Aggressive scaling for high-end GPUs (consistent with backend)
+                if total_vram_gb >= 22:  # 4090 (24GB)
+                    suggested = 32
+                elif total_vram_gb >= 16:  # 4080 (16GB)
+                    suggested = 20
+                elif total_vram_gb >= 11:  # 3080 Ti (12GB)
+                    suggested = 12
+                elif total_vram_gb >= 7:   # 3070 (8GB)
+                    suggested = 6
+                elif total_vram_gb >= 5:   # 6GB cards
+                    suggested = 3
+                else:
+                    suggested = 1
 
                 self.batch_size_var.set(suggested)
                 self._update_batch_label(suggested)

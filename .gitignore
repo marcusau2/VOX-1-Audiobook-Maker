@@ -28,6 +28,7 @@ Vox_Test2/
 *.ckpt
 *.pth
 *.safetensors
+*.whl
 models/
 
 # Logs
@@ -37,6 +38,11 @@ models/
 *.tmp
 *.bak
 test-download.bat
+
+# User data files
+user_settings.json
+master_voice.wav
+example_book.json
 
 # Documentation archive
 docs_archive/
