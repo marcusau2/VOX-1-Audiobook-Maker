@@ -8,7 +8,7 @@ Welcome to VOX-1! This guide will help you create your first audiobook.
 
 ### Launching the App
 
-**Double-click:** `RUN VOX-1.bat`
+**Double-click:** `RUN-VOX-1.bat`
 
 The app will open in your web browser (usually at http://127.0.0.1:7860)
 
@@ -235,7 +235,7 @@ VRAM: 7.2GB / 12.0GB (60%)
 
 1. Make sure you have an NVIDIA GPU (AMD/Intel won't work)
 2. Check GPU drivers are up to date
-3. Run `RUN VOX-1.bat` (not the VBS file) to see error messages
+3. Run `RUN-VOX-1.bat` (not the VBS file) to see error messages
 4. Make sure no antivirus is blocking Python
 
 ### Generation Stops or Freezes
@@ -300,14 +300,14 @@ The app creates temp files during processing:
 ## 🎯 Common Workflows
 
 ### Simple Audiobook from TXT
-1. Launch app → RUN VOX-1.bat
+1. Launch app → RUN-VOX-1.bat
 2. Lab tab → Design Voice → Save as Master Voice
 3. Studio tab → Load Master Voice → Load TXT file
 4. Click "Render Audiobook"
 5. Done! Check VOX-Output/ folder
 
 ### Chapter-Based Audiobook from EPUB
-1. Launch app → RUN VOX-1.bat
+1. Launch app → RUN-VOX-1.bat
 2. Lab tab → Design/Clone Voice → Save as Master Voice
 3. BookSmith tab → Load EPUB → Export to JSON
 4. Studio tab → Load Master Voice → Load JSON file

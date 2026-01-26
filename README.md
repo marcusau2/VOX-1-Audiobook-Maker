@@ -26,7 +26,7 @@ Right-click the link → "Save link as..." → Save to your project folder
 ### Step 4: Launch
 After installation completes:
 1. `START_HERE.txt` will open automatically with instructions
-2. Double-click `RUN VOX-1.bat` to start the app
+2. Double-click `RUN-VOX-1.bat` to start the app
 3. Read `USER_GUIDE.txt` for complete instructions
 
 That's it! The app will open in your browser.
@@ -115,7 +115,7 @@ Adjust in **Advanced Settings** tab:
 
 ```
 Your-Project-Folder/
-├── RUN VOX-1.bat              # ⭐ DOUBLE-CLICK THIS TO START
+├── RUN-VOX-1.bat              # ⭐ DOUBLE-CLICK THIS TO START
 ├── START_HERE.txt             # Quick start guide (opens after install)
 ├── USER_GUIDE.txt             # Complete user manual
 ├── Launch-Debug.bat           # For troubleshooting
