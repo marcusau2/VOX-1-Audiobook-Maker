@@ -6,20 +6,18 @@ GPU-accelerated audiobook generator using Qwen2-TTS models. Create professional-
 
 ## 🚀 Quick Install (Recommended)
 
-### Step 1: Create Project Folder
-Create a folder where you want VOX-1 installed. For example:
-- `C:\VOX-1\`
-- `D:\Projects\VOX-1\`
-- Or anywhere you prefer
+### Step 1: Download Repository
+1. Click the green **Code** button at the top of this page
+2. Select **Download ZIP**
+3. Save to your computer
 
-### Step 2: Download Installer
-Download the installer script:
-**[Install-VOX-1.bat](https://raw.githubusercontent.com/marcusau2/VOX-1-Audiobook-Maker/main/Install-VOX-1.bat)**
-
-Right-click the link → "Save link as..." → Save to your project folder
+### Step 2: Extract ZIP
+1. Right-click the downloaded ZIP file
+2. Select "Extract All..."
+3. Extract to where you want VOX-1 installed (e.g., `C:\VOX-1\`)
 
 ### Step 3: Run Installer
-1. Go to your project folder
+1. Open the extracted folder
 2. Double-click `Install-VOX-1.bat`
 3. Wait 10-15 minutes while it downloads everything (~2.5 GB)
 
@@ -27,9 +25,9 @@ Right-click the link → "Save link as..." → Save to your project folder
 After installation completes:
 1. `START_HERE.txt` will open automatically with instructions
 2. Double-click `RUN-VOX-1.bat` to start the app
-3. Read `USER_GUIDE.txt` for complete instructions
+3. Read `USER_GUIDE.md` for complete instructions
 
-That's it! The app will open in your browser.
+That's it! A desktop window will open with the VOX-1 interface.
 
 ---
 

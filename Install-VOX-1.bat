@@ -1,14 +1,20 @@
 @echo off
+setlocal enabledelayedexpansion
+
 REM ============================================
 REM VOX-1 Audiobook Maker - Installer
 REM ============================================
 REM
+REM PREREQUISITES:
+REM - Download the full repository ZIP from GitHub
+REM - Extract it to a folder
+REM - Run this installer from that folder
+REM
 REM This script will:
 REM - Download Python 3.10 (embedded)
-REM - Download VOX-1 source code from GitHub
+REM - Install pip
 REM - Download FFmpeg
-REM - Install all dependencies
-REM - Set up the launcher
+REM - Install all Python dependencies
 REM
 REM Total download: ~2.5 GB
 REM Time required: 10-15 minutes
@@ -22,8 +28,67 @@ echo.
 echo This will install VOX-1 in the current folder:
 echo %CD%
 echo.
+echo Prerequisites: You should have downloaded and extracted
+echo the full repository ZIP from GitHub before running this.
+echo.
 echo Total download size: ~2.5 GB
 echo Estimated time: 10-15 minutes
+echo.
+
+REM Verify we're in the right directory
+echo Checking for required files...
+set MISSING_FILES=0
+
+if not exist "app.py" (
+    echo   [MISSING] app.py
+    set MISSING_FILES=1
+)
+
+if not exist "backend.py" (
+    echo   [MISSING] backend.py
+    set MISSING_FILES=1
+)
+
+if not exist "requirements.txt" (
+    echo   [MISSING] requirements.txt
+    set MISSING_FILES=1
+)
+
+if not exist "RUN-VOX-1.bat" (
+    echo   [MISSING] RUN-VOX-1.bat
+    set MISSING_FILES=1
+)
+
+if not exist "booksmith_module" (
+    echo   [MISSING] booksmith_module folder
+    set MISSING_FILES=1
+)
+
+if %MISSING_FILES% EQU 1 (
+    echo.
+    echo ============================================
+    echo ERROR: Missing required files!
+    echo ============================================
+    echo.
+    echo It looks like you're not running this installer from
+    echo the extracted repository folder.
+    echo.
+    echo Please:
+    echo 1. Download the repository ZIP from GitHub
+    echo 2. Extract it to a folder
+    echo 3. Run this Install-VOX-1.bat from that folder
+    echo.
+    pause
+    exit /b 1
+)
+
+echo   [OK] app.py
+echo   [OK] backend.py
+echo   [OK] requirements.txt
+echo   [OK] RUN-VOX-1.bat
+echo   [OK] booksmith_module
+echo.
+echo All required files found!
 echo.
 echo Press any key to continue, or CTRL+C to cancel...
 pause >nul
@@ -33,134 +98,98 @@ REM Change to script directory
 cd /d "%~dp0"
 
 REM ============================================
-echo [1/6] Downloading Python 3.10 (~9 MB)...
+echo [Step 1/4] Downloading Python 3.10 (~9 MB)...
 echo ============================================
 echo.
 
 if exist "python310\python.exe" (
-    echo Python 3.10 already downloaded.
+    echo Python 3.10 already installed.
 ) else (
     echo Downloading Python 3.10.11 embedded...
-    powershell -Command "& {Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip' -OutFile 'python.zip'}"
+    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip' -OutFile 'python.zip'"
 
-    if errorlevel 1 (
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
         echo ERROR: Failed to download Python!
         echo Please check your internet connection.
+        echo.
         pause
         exit /b 1
     )
 
     echo Extracting Python...
-    powershell -Command "& {Expand-Archive -Path 'python.zip' -DestinationPath 'python310' -Force}"
+    powershell -Command "Expand-Archive -Path 'python.zip' -DestinationPath 'python310' -Force"
+
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
+        echo ERROR: Failed to extract Python!
+        echo.
+        pause
+        exit /b 1
+    )
+
     del python.zip
-    echo Done.
+    echo Python installed successfully.
 )
 echo.
 
 REM ============================================
-echo [2/6] Configuring Python environment...
+echo [Step 2/4] Configuring Python environment...
 echo ============================================
 echo.
 
 if exist "python310\python310._pth" (
-    copy /Y "python310\python310._pth" "python310\python310._pth.bak" >nul
     (
         echo python310.zip
         echo .
         echo ..
         echo import site
     ) > "python310\python310._pth"
+    echo Python environment configured.
+) else (
+    echo WARNING: python310._pth not found, skipping configuration.
 )
-echo Done.
 echo.
 
 REM ============================================
-echo [3/6] Installing pip...
+echo [Step 3/4] Installing pip...
 echo ============================================
 echo.
 
 if not exist "python310\Scripts\pip.exe" (
     echo Downloading pip installer...
-    powershell -Command "& {Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile 'get-pip.py'}"
+    powershell -Command "Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile 'get-pip.py'"
+
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
+        echo ERROR: Failed to download pip installer!
+        echo.
+        pause
+        exit /b 1
+    )
+
+    echo Installing pip...
     python310\python.exe get-pip.py
+
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
+        echo ERROR: Failed to install pip!
+        echo.
+        pause
+        exit /b 1
+    )
+
     del get-pip.py
-    echo Done.
+    echo Pip installed successfully.
 ) else (
     echo Pip already installed.
 )
 echo.
 
 REM ============================================
-echo [4/6] Downloading VOX-1 source code from GitHub...
+echo [Step 4/4] Downloading FFmpeg (~201 MB)...
 echo ============================================
 echo.
-
-if exist "app\app.py" (
-    echo Source code already downloaded.
-    echo.
-    choice /C YN /M "Do you want to re-download (update)"
-    if errorlevel 2 goto skip_download
-    echo.
-    echo Re-downloading latest version...
-    rmdir /S /Q app 2>nul
-)
-
-echo Downloading from GitHub...
-powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/marcusau2/VOX-1-Audiobook-Maker/archive/refs/heads/main.zip' -OutFile 'vox1-source.zip'}"
-
-if errorlevel 1 (
-    echo ERROR: Failed to download source code!
-    echo Please check your internet connection.
-    pause
-    exit /b 1
-)
-
-echo Extracting source code...
-powershell -Command "& {Expand-Archive -Path 'vox1-source.zip' -DestinationPath 'temp' -Force}"
-
-echo Copying all files from repository...
-xcopy /E /I /Y "temp\VOX-1-Audiobook-Maker-main\*" "." >nul
-
-if not exist "RUN-VOX-1.bat" (
-    echo ERROR: Failed to extract repository files!
-    echo Please check if the download completed successfully.
-    pause
-    exit /b 1
-)
-if not exist "app.py" (
-    echo ERROR: app.py not found in repository!
-    echo Please check if the download completed successfully.
-    pause
-    exit /b 1
-)
-echo Repository files extracted successfully.
-
-REM Download ComfyUI-Qwen-TTS library
-echo Downloading TTS library (ComfyUI-Qwen-TTS)...
-powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/flybirdxx/ComfyUI-Qwen-TTS/archive/refs/heads/main.zip' -OutFile 'comfyui-tts.zip'}"
-
-if errorlevel 1 (
-    echo.
-    echo WARNING: Failed to download TTS library!
-    echo Trying alternate method...
-    echo.
-    REM Try without Invoke-WebRequest
-    powershell -Command "wget 'https://github.com/flybirdxx/ComfyUI-Qwen-TTS/archive/refs/heads/main.zip' -O 'comfyui-tts.zip'"
-)
-
-if not exist "comfyui-tts.zip" (
-    echo ERROR: Could not download TTS library!
-    echo The app will not work without this.
-    echo.
-    echo Please check your internet connection and try again.
-    pause
-    exit /b 1
-)
-
-powershell -Command "& {Expand-Archive -Path 'comfyui-tts.zip' -DestinationPath 'temp_tts' -Force}"
-xcopy /E /I /Y "temp_tts\ComfyUI-Qwen-TTS-main" "ComfyUI-Qwen-TTS\" >nul
-rmdir /S /Q temp_tts 2>nul
-del comfyui-tts.zip 2>nul
 
 REM Create output directories
 mkdir "Output" 2>nul
@@ -168,71 +197,94 @@ mkdir "VOX-Output" 2>nul
 mkdir "temp_work" 2>nul
 mkdir "ffmpeg_bundle" 2>nul
 
-REM Cleanup
-rmdir /S /Q temp 2>nul
-del vox1-source.zip 2>nul
-echo Done.
-
-:skip_download
-echo.
-
-REM ============================================
-echo [5/6] Downloading FFmpeg (~201 MB from GitHub)...
-echo ============================================
-echo.
-
 if exist "ffmpeg_bundle\ffmpeg.exe" (
     echo FFmpeg already installed.
 ) else (
-    echo Downloading FFmpeg from GitHub (fast CDN)...
-    powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip' -OutFile 'ffmpeg.zip'}"
+    echo Downloading FFmpeg from GitHub...
+    powershell -Command "Invoke-WebRequest -Uri 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip' -OutFile 'ffmpeg.zip'"
 
-    if errorlevel 1 (
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
         echo WARNING: FFmpeg download failed!
         echo The app may not work properly without FFmpeg.
-        echo You can download manually later.
+        echo You can download it manually later.
+        echo.
     ) else (
         echo Extracting FFmpeg...
-        powershell -Command "& {Expand-Archive -Path 'ffmpeg.zip' -DestinationPath 'ffmpeg_temp' -Force}"
+        powershell -Command "Expand-Archive -Path 'ffmpeg.zip' -DestinationPath 'ffmpeg_temp' -Force"
 
-        for /d %%D in (ffmpeg_temp\ffmpeg-*) do (
-            copy /Y "%%D\bin\ffmpeg.exe" "ffmpeg_bundle\ffmpeg.exe" >nul
-            copy /Y "%%D\bin\ffprobe.exe" "ffmpeg_bundle\ffprobe.exe" >nul
+        if %ERRORLEVEL% NEQ 0 (
+            echo WARNING: Failed to extract FFmpeg.
+        ) else (
+            REM Find and copy ffmpeg.exe and ffprobe.exe
+            for /d %%D in (ffmpeg_temp\ffmpeg-*) do (
+                if exist "%%D\bin\ffmpeg.exe" (
+                    copy /Y "%%D\bin\ffmpeg.exe" "ffmpeg_bundle\ffmpeg.exe" >nul
+                    copy /Y "%%D\bin\ffprobe.exe" "ffmpeg_bundle\ffprobe.exe" >nul
+                )
+            )
+            echo FFmpeg installed successfully.
         )
 
         rmdir /S /Q ffmpeg_temp 2>nul
         del ffmpeg.zip 2>nul
-        echo Done.
     )
 )
 echo.
 
 REM ============================================
-echo [6/6] Installing Python dependencies (~2 GB)...
+echo [Step 5/5] Installing Python dependencies (~2 GB)...
 echo ============================================
 echo.
 echo This will take 5-10 minutes...
-echo Downloading PyTorch, Transformers, and other packages...
+echo Downloading PyTorch, Transformers, customtkinter, qwen-tts, and other packages...
+echo.
+echo NOTE: You will see the installation progress below.
+echo       This is normal and expected.
 echo.
 
-python310\python.exe -m pip install --upgrade pip >nul 2>&1
-echo Pip upgraded.
-echo.
-echo Installing packages (this is the slow part)...
-python310\python.exe -m pip install -r requirements.txt
+echo Upgrading pip...
+python310\python.exe -m pip install --upgrade pip
 
-if errorlevel 1 (
+if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo WARNING: Some packages may have failed to install.
+    echo WARNING: Failed to upgrade pip, but continuing anyway...
     echo.
-    echo The launcher files will still be created.
-    echo You can run the installer again to retry, or run:
-    echo   python310\python.exe -m pip install -r requirements.txt
-    echo.
-    pause
 )
 
 echo.
+echo Installing packages from requirements.txt...
+echo This will install in the correct order to avoid conflicts.
+echo.
+echo ============================================
+python310\python.exe -m pip install -r requirements.txt
+echo ============================================
+echo.
+
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo ============================================
+    echo WARNING: Some packages may have failed to install!
+    echo ============================================
+    echo.
+    echo The installation encountered errors. Common causes:
+    echo   - Network connection issues
+    echo   - Incompatible package versions
+    echo   - Missing system dependencies
+    echo.
+    echo You can try to fix this by running:
+    echo   python310\python.exe -m pip install -r requirements.txt
+    echo.
+    echo Or install individual packages manually.
+    echo.
+    pause
+) else (
+    echo.
+    echo ============================================
+    echo All packages installed successfully!
+    echo ============================================
+    echo.
+)
 
 REM ============================================
 echo.
@@ -247,13 +299,12 @@ echo ============================================
 echo NEXT STEPS:
 echo ============================================
 echo.
-echo 1. Read: START_HERE.txt (opening now...)
-echo.
-echo 2. To launch VOX-1:
+echo 1. To launch VOX-1:
 echo    Double-click: RUN-VOX-1.bat
 echo.
-echo 3. For help:
+echo 2. For help and documentation:
 echo    Read: USER_GUIDE.md
+echo    Read: START_HERE.txt
 echo.
 echo ============================================
 echo.
@@ -261,15 +312,19 @@ echo A desktop window will open when you run VOX-1.
 echo Keep the console window open while using the app!
 echo.
 echo System Requirements:
-echo - NVIDIA GPU with 8GB+ VRAM
+echo - NVIDIA GPU with 8GB+ VRAM (required)
 echo - Windows 10/11
 echo.
 echo ============================================
 echo.
 
-REM Open START_HERE.txt automatically
-start "" "START_HERE.txt"
+REM Open START_HERE.txt if it exists
+if exist "START_HERE.txt" (
+    echo Opening START_HERE.txt...
+    start "" "START_HERE.txt"
+    echo.
+)
 
-echo Opening START_HERE.txt...
+echo Installation complete!
 echo.
 pause
