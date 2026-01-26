@@ -466,7 +466,7 @@ class AudioEngine:
         self._ensure_model('design')
         output_path = os.path.join(self.output_dir, output_filename)
         self.log(f"Generating Voice Design...")
-        with torch.no_grad():
+        with torch.inference_mode():
             wavs, sr = self.active_model.generate_voice_design(
                 text=text,
                 language="English",
@@ -481,7 +481,7 @@ class AudioEngine:
         output_path = os.path.join(self.output_dir, output_filename)
         ref_text = self._transcribe_audio(ref_audio_path)
         self.log(f"Cloning voice...")
-        with torch.no_grad():
+        with torch.inference_mode():
             wavs, sr = self.active_model.generate_voice_clone(
                 text=text,
                 language="English",
@@ -575,7 +575,7 @@ class AudioEngine:
         if self.device == "cuda":
             self.log("Warming up GPU memory allocator...")
             try:
-                with torch.no_grad():
+                with torch.inference_mode():
                     # Generate a tiny sample to initialize memory pools
                     warmup_text = ["Test warmup."]
                     if voice_prompt is not None:
@@ -605,7 +605,7 @@ class AudioEngine:
         import hashlib
 
         # Process chunks in batches
-        with torch.no_grad():
+        with torch.inference_mode():
             i = 0
             while i < total_chunks:
                 if stop_event and stop_event.is_set():
@@ -667,11 +667,12 @@ class AudioEngine:
                             text=batch_chunks,
                             language="English",
                             voice_clone_prompt=voice_prompt,
-                            max_new_tokens=4096,
+                            max_new_tokens=2048,
                             temperature=self.temperature,
                             top_p=self.top_p,
                             top_k=self.top_k,
-                            repetition_penalty=self.repetition_penalty
+                            repetition_penalty=self.repetition_penalty,
+                            non_streaming_mode=True
                         )
                     else:
                         wavs, sr = self.active_model.generate_voice_clone(
@@ -679,11 +680,12 @@ class AudioEngine:
                             language="English",
                             ref_audio=master_voice_path,
                             ref_text=ref_text,
-                            max_new_tokens=4096,
+                            max_new_tokens=2048,
                             temperature=self.temperature,
                             top_p=self.top_p,
                             top_k=self.top_k,
-                            repetition_penalty=self.repetition_penalty
+                            repetition_penalty=self.repetition_penalty,
+                            non_streaming_mode=True
                         )
 
                     # Save each result
@@ -1198,7 +1200,7 @@ class AudioEngine:
             audio_segments = []
 
             # Process chunks ONE AT A TIME (following ComfyUI pattern)
-            with torch.no_grad():
+            with torch.inference_mode():
                 for i, chunk in enumerate(chunks):
                     if stop_event and stop_event.is_set():
                         self.log("Render stopped by user.")
@@ -1613,7 +1615,7 @@ class AudioEngine:
             audio_segments = []
 
             # Process chunks in batches
-            with torch.no_grad():
+            with torch.inference_mode():
                 i = 0
                 while i < chunk_count:
                     if stop_event and stop_event.is_set():
