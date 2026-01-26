@@ -35,14 +35,15 @@ That's it! The app will open in your browser.
 The installer automatically downloads and sets up:
 - ✅ Python 3.10 (embedded, no system install needed)
 - ✅ VOX-1 source code
-- ✅ FFmpeg (audio processing)
+- ✅ FFmpeg (audio processing, from GitHub)
 - ✅ PyTorch + CUDA (~2 GB)
 - ✅ All Python dependencies
 - ✅ TTS models (downloaded on first use)
 
-**Total size:** ~2.5 GB
+**Total size:** ~2.7 GB
 **Installation time:** 10-15 minutes
 **Internet required:** Only during installation
+**Download speed:** Fast (GitHub CDN)
 
 ---
 
