@@ -794,7 +794,7 @@ class Vox1App(ctk.CTk):
                     repetition_penalty=repetition_penalty
                 )
                 self.after(0, lambda: self.status_bar.configure(text=f"System Ready ({size})"))
-                self.after(0, lambda: self.gen_btn.configure(state="normal")
+                self.after(0, lambda: self.gen_btn.configure(state="normal"))
                 self.after(0, self._check_render_ready)
             except Exception as e:
                 err_msg = traceback.format_exc()
@@ -853,8 +853,8 @@ class Vox1App(ctk.CTk):
                     if not hasattr(self, 'ref_file_path'): raise ValueError("No file selected")
                     path = self.engine.create_voice_clone_preview(text, self.ref_file_path)
                 self.preview_path = path
-                self.after(0, lambda: self.play_btn.configure(state="normal")
-                self.after(0, lambda: self.save_master_btn.configure(state="normal")
+                self.after(0, lambda: self.play_btn.configure(state="normal"))
+                self.after(0, lambda: self.save_master_btn.configure(state="normal"))
                 self.after(0, lambda: self.status_bar.configure(text="Done"))
             except Exception as e:
                 self.log(traceback.format_exc())
