@@ -1,5 +1,0 @@
-docling>=1.0.0
-ebooklib>=0.17
-beautifulsoup4>=4.12.0
-ftfy>=6.1.0
-pymupdf>=1.23.0
