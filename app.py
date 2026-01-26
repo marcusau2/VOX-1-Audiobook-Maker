@@ -7,9 +7,6 @@ import json
 import traceback
 from tkinter import filedialog, messagebox
 
-# Ensure current directory is in path for embedded python
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from backend import AudioEngine
 
 ctk.set_appearance_mode("Dark")
