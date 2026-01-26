@@ -2,7 +2,7 @@
 # VOX-1 Audiobook Maker - Setup Script
 # ============================================================================
 # This script handles the downloading and installation of all dependencies.
-# It uses a "Private" Python installation and a Virtual Environment.
+# It uses the "Embeddable Zip" method for a truly portable Python installation.
 # ============================================================================
 
 $ErrorActionPreference = "Stop"
@@ -10,7 +10,8 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $PythonVersion = "3.10.11"
-$PythonInstallerUrl = "https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe"
+$PythonEmbedUrl = "https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip"
+$GetPipUrl = "https://bootstrap.pypa.io/get-pip.py"
 $FFmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 
 $RootDir = $PSScriptRoot
@@ -44,38 +45,38 @@ Write-Host "This script will install a private Python environment"
 Write-Host "and all dependencies for VOX-1."
 Write-Host ""
 
-# 1. Install Python (Private Install)
+# 1. Install Python (Embeddable Method)
 if (-not (Test-Path "$PythonSystemDir\python.exe")) {
-    Write-Host "[1/5] Downloading Python $PythonVersion..." -ForegroundColor Yellow
-    $InstallerPath = Join-Path $RootDir "python_installer.exe"
-    Download-File -Url $PythonInstallerUrl -OutputPath $InstallerPath
+    Write-Host "[1/5] Downloading Python 3.10 (Embeddable)..." -ForegroundColor Yellow
+    $ZipPath = Join-Path $RootDir "python.zip"
+    Download-File -Url $PythonEmbedUrl -OutputPath $ZipPath
 
-    Write-Host "[2/5] Installing Python (Local)..." -ForegroundColor Yellow
-    
-    # Define arguments as an array to handle spaces/quoting correctly
-    $InstallArgs = @(
-        "/passive",
-        "InstallAllUsers=0",
-        "PrependPath=0",
-        "Include_test=0",
-        "Include_pip=1",
-        "TargetDir=$PythonSystemDir"
-    )
+    Write-Host "[2/5] Extracting Python..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Force -Path $PythonSystemDir | Out-Null
+    Extract-Zip -ZipPath $ZipPath -DestPath $PythonSystemDir
+    Remove-Item $ZipPath -Force
 
-    Write-Host "Debug: Installer Args: $InstallArgs" -ForegroundColor DarkGray
-    
-    $Process = Start-Process -FilePath $InstallerPath -ArgumentList $InstallArgs -Wait -PassThru
-    
-    if ($Process.ExitCode -ne 0) {
-        Write-Error "Python installation failed with exit code $($Process.ExitCode)."
+    # CRITICAL: Enable 'site' package to allow pip/venv to work
+    Write-Host "Configuring Python for pip/venv support..." -ForegroundColor Cyan
+    $PthFile = Join-Path $PythonSystemDir "python310._pth"
+    if (Test-Path $PthFile) {
+        $Content = Get-Content $PthFile
+        $Content = $Content -replace "#import site", "import site"
+        Set-Content -Path $PthFile -Value $Content
     }
 
-    # Verify installation immediately
-    if (-not (Test-Path "$PythonSystemDir\python.exe")) {
-        Write-Error "Python installer finished, but python.exe is missing from: $PythonSystemDir`nCheck if the path is valid or if antivirus blocked it."
-    }
+    # Install pip manually (Embeddable doesn't have it)
+    Write-Host "Installing pip..." -ForegroundColor Cyan
+    $GetPipPath = Join-Path $RootDir "get-pip.py"
+    Download-File -Url $GetPipUrl -OutputPath $GetPipPath
     
-    Remove-Item $InstallerPath -Force
+    & "$PythonSystemDir\python.exe" $GetPipPath --no-warn-script-location
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to install pip."
+    }
+    Remove-Item $GetPipPath -Force
+
     Write-Host "Python installed successfully." -ForegroundColor Green
 } else {
     Write-Host "Python already installed." -ForegroundColor Green
