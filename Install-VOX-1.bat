@@ -257,8 +257,8 @@ echo    Read: USER_GUIDE.md
 echo.
 echo ============================================
 echo.
-echo The app will open in your web browser.
-echo Keep the console window open while using VOX-1!
+echo A desktop window will open when you run VOX-1.
+echo Keep the console window open while using the app!
 echo.
 echo System Requirements:
 echo - NVIDIA GPU with 8GB+ VRAM

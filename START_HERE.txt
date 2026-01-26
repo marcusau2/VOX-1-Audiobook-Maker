@@ -11,7 +11,7 @@ HOW TO USE VOX-1:
 1. LAUNCH THE APP:
    Double-click: RUN-VOX-1.bat
 
-   The app will open in your web browser.
+   A desktop window will open shortly.
    Keep the console window open while using VOX-1!
 
 2. CONVERT TEXT TO AUDIO:

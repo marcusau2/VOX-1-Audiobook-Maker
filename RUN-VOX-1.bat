@@ -4,9 +4,9 @@ echo    VOX-1 Audiobook Maker
 echo ============================================
 echo.
 echo Starting VOX-1...
-echo The app will open in your browser.
+echo A desktop window will open shortly.
 echo.
-echo IMPORTANT: Keep this window open while using VOX-1!
+echo IMPORTANT: Keep this console window open while using VOX-1!
 echo            Closing this window will stop the app.
 echo.
 echo ============================================
