@@ -228,10 +228,33 @@ class AudioEngine:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.log(f"Initializing AudioEngine on {self.device}...")
 
-        # Disable cudnn benchmarking - it can use excessive VRAM for workspace buffers
+        # Configure CUDA memory management to allow dynamic VRAM growth
         if self.device == "cuda":
+            # KEEP cuDNN benchmarking DISABLED - it wastes VRAM on variable-length TTS inputs
             torch.backends.cudnn.benchmark = False
-            # self.log("Enabled cuDNN benchmarking for faster inference")
+            torch.backends.cudnn.deterministic = False
+
+            # Configure PyTorch CUDA allocator to allow VRAM to grow dynamically
+            # Without this, VRAM stays stuck at ~2GB even with 24GB available
+            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:512'
+
+            # Allow PyTorch to use more VRAM for batch processing
+            # This lets allocated memory grow to match reserved memory during generation
+            total_vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
+            if total_vram >= 22:  # 4090 or similar high-end GPU
+                torch.cuda.set_per_process_memory_fraction(0.95)
+                self.log("GPU memory configured for high-end GPU (95% VRAM available)")
+            elif total_vram >= 11:  # Mid-range GPU (4070 Ti, 4080)
+                torch.cuda.set_per_process_memory_fraction(0.90)
+                self.log("GPU memory configured for mid-range GPU (90% VRAM available)")
+            else:  # Entry-level GPU
+                torch.cuda.set_per_process_memory_fraction(0.85)
+                self.log("GPU memory configured for entry-level GPU (85% VRAM available)")
+
+            # Pre-allocate memory pool to reduce fragmentation
+            torch.cuda.empty_cache()
+
+            self.log("CUDA memory allocator configured for dynamic VRAM growth")
 
             # Detect GPU VRAM and provide recommendations
             self._check_vram_and_recommend()
@@ -546,6 +569,35 @@ class AudioEngine:
         total_chunks = len(chunks)
 
         self.log(f"Starting render of {total_chunks} chunks (batch_size={self.batch_size}, chunk_size={self.chunk_size}).")
+
+        # WARMUP: Pre-allocate VRAM by doing a small test generation
+        # This ensures PyTorch's allocator properly claims memory before batch processing
+        if self.device == "cuda":
+            self.log("Warming up GPU memory allocator...")
+            try:
+                with torch.no_grad():
+                    # Generate a tiny sample to initialize memory pools
+                    warmup_text = ["Test warmup."]
+                    if voice_prompt is not None:
+                        _, _ = self.active_model.generate_voice_clone(
+                            text=warmup_text,
+                            language="English",
+                            voice_clone_prompt=voice_prompt,
+                            max_new_tokens=512
+                        )
+                    else:
+                        _, _ = self.active_model.generate_voice_clone(
+                            text=warmup_text,
+                            language="English",
+                            ref_audio=master_voice_path,
+                            ref_text=ref_text,
+                            max_new_tokens=512
+                        )
+                    torch.cuda.empty_cache()
+                    self.log("GPU warmup complete")
+                    self._log_vram("After Warmup")
+            except Exception as warmup_err:
+                self.log(f"Warmup failed (non-critical): {warmup_err}")
 
         audio_segments = []
         # self._clear_temp_dir() # Removed to allow resuming
