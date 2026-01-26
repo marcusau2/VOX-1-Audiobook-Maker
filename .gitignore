@@ -44,21 +44,22 @@ ENV/
 Thumbs.db
 desktop.ini
 
-# Project specific
+# Project specific - Output folders
 Output/
 VOX-Output/
 temp_work/
 *.wav
 *.mp3
 *.m4b
+
+# Models and checkpoints
 models/
 checkpoints/
+ComfyUI-Qwen-TTS/models/
+ComfyUI-Qwen-TTS/checkpoints/
 
 # User settings (keep template, ignore user customizations)
 user_settings.json
-
-# Documentation archive
-docs_archive/
 
 # Build artifacts
 dist/
@@ -74,11 +75,52 @@ Portable_Vox1*/
 *.log
 activity.log
 
-# ComfyUI models cache
-ComfyUI-Qwen-TTS/models/
-ComfyUI-Qwen-TTS/checkpoints/
-
 # Large binary files (too big for GitHub)
 *.whl
 ffmpeg_bundle/ffmpeg.exe
 ffmpeg_bundle/ffprobe.exe
+
+# ============================================
+# DEVELOPMENT/SESSION FILES - NOT FOR DISTRIBUTION
+# ============================================
+
+# Session handoffs and summaries
+*HANDOFF*.md
+SESSION_*.md
+NEXT_SESSION*.md
+
+# Development documentation
+BATCH_LAUNCHER*.md
+VRAM_MONITORING*.md
+PERFORMANCE_REVERT*.md
+PORTABLE_CREATION*.md
+DOCUMENTATION_CLEANUP*.md
+
+# Setup guides (keep only in repo root)
+PUSH_TO_GITHUB.txt
+GITHUB_SETUP.md
+
+# Local launcher scripts (for development only, not portable)
+Launch Vox-1.vbs
+Launch Vox-1.bat
+LAUNCHER_GUIDE.md
+
+# Build files
+build.py
+build_log.txt
+BUILD*.txt
+README_UPDATED_BUILD.txt
+
+# Test files
+test_imports.py
+test_*.py
+
+# Documentation archive
+docs_archive/
+
+# Example files (user-specific)
+example_book.json
+
+# Project status (development tracking)
+PROJECT_STATUS.md
+PORTABLE_VERSION_GUIDE.md
