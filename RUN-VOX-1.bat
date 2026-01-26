@@ -5,7 +5,7 @@ echo ============================================
 echo.
 cd /d "%~dp0"
 
-if not exist "venv\Scripts\python.exe" (
+if not exist "system_python\python.exe" (
     echo ERROR: Python environment not found!
     echo Please run Install-VOX-1.bat first.
     echo.
@@ -18,7 +18,7 @@ echo.
 echo IMPORTANT: Keep this console window open!
 echo.
 
-venv\Scripts\python.exe app.py
+system_python\python.exe app.py
 
 echo.
 echo VOX-1 has stopped.

@@ -82,18 +82,9 @@ if (-not (Test-Path "$PythonSystemDir\python.exe")) {
     Write-Host "Python already installed." -ForegroundColor Green
 }
 
-# 2. Create Virtual Environment
-if (-not (Test-Path "$VenvDir\Scripts\python.exe")) {
-    Write-Host "[3/5] Creating Virtual Environment..." -ForegroundColor Yellow
-    & "$PythonSystemDir\python.exe" -m venv "$VenvDir"
-    if ($LASTEXITCODE -ne 0) { Write-Error "Failed to create venv." }
-} else {
-    Write-Host "Virtual Environment exists." -ForegroundColor Green
-}
-
-# 3. Install FFmpeg
+# 2. Install FFmpeg
 if (-not (Test-Path "$FFmpegDir\ffmpeg.exe")) {
-    Write-Host "[4/5] Setting up FFmpeg..." -ForegroundColor Yellow
+    Write-Host "[3/4] Setting up FFmpeg..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Force -Path $FFmpegDir | Out-Null
     $FFmpegZip = Join-Path $RootDir "ffmpeg.zip"
     $TempDir = Join-Path $RootDir "ffmpeg_temp"
@@ -114,13 +105,14 @@ if (-not (Test-Path "$FFmpegDir\ffmpeg.exe")) {
     Write-Host "FFmpeg already installed." -ForegroundColor Green
 }
 
-# 4. Install Dependencies
-Write-Host "[5/5] Installing Python Dependencies..." -ForegroundColor Yellow
+# 3. Install Dependencies
+Write-Host "[4/4] Installing Python Dependencies..." -ForegroundColor Yellow
 Write-Host "This may take 5-10 minutes (downloading PyTorch ~2.5GB)..." -ForegroundColor Cyan
 
-$Pip = "$VenvDir\Scripts\pip.exe"
-& $Pip install --upgrade pip
-& $Pip install -r requirements.txt
+# Use the embedded python's pip directly
+$PythonExe = "$PythonSystemDir\python.exe"
+& $PythonExe -m pip install --upgrade pip
+& $PythonExe -m pip install -r requirements.txt
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
