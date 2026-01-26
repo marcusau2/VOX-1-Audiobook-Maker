@@ -2,7 +2,8 @@ customtkinter
 qwen-tts
 # Force CUDA version for torch (CUDA 12.8 - matches system CUDA)
 # PyTorch 2.7.1 for flash-attn compatibility
---index-url https://download.pytorch.org/whl/cu128
+# Use --extra-index-url to add PyTorch CUDA repo alongside PyPI
+--extra-index-url https://download.pytorch.org/whl/cu128
 torch==2.7.1
 torchaudio==2.7.1
 soundfile
