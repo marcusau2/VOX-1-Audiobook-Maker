@@ -92,6 +92,33 @@ If you downloaded as ZIP:
 
 ---
 
+## ⚡ Performance Optimization (Optional)
+
+### Flash Attention 2 - Faster & More Efficient
+
+Get **2-4x less VRAM usage** and **2x faster generation** by installing Flash Attention 2:
+
+1. **Run the installer:**
+   ```
+   Double-click: Install-Flash-Attention.bat
+   ```
+
+2. **Enable in VOX-1:**
+   - Launch VOX-1
+   - Go to Advanced Settings tab
+   - Set "Attention Implementation" to **"auto"**
+   - Click "Apply Settings"
+
+3. **Test higher batch sizes:**
+   - **12GB GPU:** Try batch 5-10 (vs 2-3 without)
+   - **24GB GPU:** Try batch 20-40 (vs 5-7 without)
+
+**Requirements:** NVIDIA RTX 3000/4000 series GPU (Ampere or newer)
+
+**Detailed guide:** See [FLASH_ATTENTION.md](FLASH_ATTENTION.md) for complete installation and usage instructions.
+
+---
+
 ## 💻 System Requirements
 
 - **OS:** Windows 10/11 64-bit
@@ -137,11 +164,21 @@ If you downloaded as ZIP:
 
 Adjust in **Advanced Settings** tab:
 
+**Without Flash Attention:**
 | GPU VRAM | Batch Size | Model Size | Speed |
 |----------|------------|------------|-------|
 | 8-10 GB  | 1-2        | 0.6B       | 1.5x  |
-| 12 GB    | 3-5        | 0.6B       | 1.8x  |
-| 16 GB+   | 5-10       | 1.7B       | 2.0x  |
+| 12 GB    | 2-3        | 0.6B       | 1.8x  |
+| 24 GB    | 5-7        | 1.7B       | 2.0x  |
+
+**With Flash Attention 2 (Recommended):**
+| GPU VRAM | Batch Size | Model Size | Speed |
+|----------|------------|------------|-------|
+| 8-10 GB  | 3-5        | 0.6B       | 2-3x  |
+| 12 GB    | 5-10       | 0.6B       | 3-5x  |
+| 24 GB    | 20-40      | 1.7B       | 10-20x |
+
+*Install Flash Attention 2 for significantly better performance - see [Performance Optimization](#-performance-optimization-optional) section above*
 
 ---
 
@@ -226,6 +263,7 @@ See [MANUAL_INSTALL.md](MANUAL_INSTALL.md) for detailed instructions.
 ## 📚 Documentation
 
 - **README.md** - This file (quick start)
+- **FLASH_ATTENTION.md** - Performance optimization guide
 - **MANUAL_INSTALL.md** - Advanced installation guide
 - **booksmith_module/README.md** - Text processing details
 

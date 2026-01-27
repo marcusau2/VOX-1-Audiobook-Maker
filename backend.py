@@ -213,7 +213,8 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 
 class AudioEngine:
     def __init__(self, log_callback=print, model_size="1.7B", batch_size=3, chunk_size=500,
-                 temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05):
+                 temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05,
+                 attn_implementation="auto"):
         self.log = log_callback
         self.model_size = model_size
         self.batch_size = batch_size
@@ -224,6 +225,7 @@ class AudioEngine:
         self.top_p = top_p
         self.top_k = top_k
         self.repetition_penalty = repetition_penalty
+        self.attn_implementation = attn_implementation
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.log(f"Initializing AudioEngine on {self.device}...")
@@ -395,12 +397,62 @@ class AudioEngine:
             self.log(f"Loading RENDER model ({model_id})...")
 
         try:
-            # Qwen3-TTS load
-            self.active_model = Qwen3TTSModel.from_pretrained(
-                model_id,
-                device_map=self.device,
-                dtype=torch.bfloat16
-            )
+            # Qwen3-TTS load with configurable attention implementation
+            # Flash Attention 2 reduces VRAM usage by 2-4x during attention operations
+
+            if self.attn_implementation == "auto":
+                # Auto: Try Flash Attention if available, fallback to default
+                try:
+                    import flash_attn
+                    self.log(f"Flash Attention {flash_attn.__version__} detected - attempting to use it")
+                    self.active_model = Qwen3TTSModel.from_pretrained(
+                        model_id,
+                        device_map=self.device,
+                        dtype=torch.bfloat16,
+                        attn_implementation='flash_attention_2'
+                    )
+                    self.log("✅ Flash Attention 2 enabled successfully")
+                except ImportError:
+                    self.log("Flash Attention not installed - using default attention")
+                    self.active_model = Qwen3TTSModel.from_pretrained(
+                        model_id,
+                        device_map=self.device,
+                        dtype=torch.bfloat16
+                    )
+                except Exception as e:
+                    self.log(f"Flash Attention failed to load ({str(e)[:50]}) - using default")
+                    self.active_model = Qwen3TTSModel.from_pretrained(
+                        model_id,
+                        device_map=self.device,
+                        dtype=torch.bfloat16
+                    )
+            elif self.attn_implementation == "flash_attention_2":
+                # Force Flash Attention 2 (will error if not available)
+                self.log(f"Forcing Flash Attention 2 (user selected)")
+                self.active_model = Qwen3TTSModel.from_pretrained(
+                    model_id,
+                    device_map=self.device,
+                    dtype=torch.bfloat16,
+                    attn_implementation='flash_attention_2'
+                )
+                self.log("✅ Flash Attention 2 enabled")
+            elif self.attn_implementation in ["sdpa", "eager"]:
+                # Use specific attention method
+                self.log(f"Using attention method: {self.attn_implementation}")
+                self.active_model = Qwen3TTSModel.from_pretrained(
+                    model_id,
+                    device_map=self.device,
+                    dtype=torch.bfloat16,
+                    attn_implementation=self.attn_implementation
+                )
+            else:
+                # Default (no attn_implementation specified)
+                self.log("Using default attention implementation")
+                self.active_model = Qwen3TTSModel.from_pretrained(
+                    model_id,
+                    device_map=self.device,
+                    dtype=torch.bfloat16
+                )
 
             # Optimization: Compile the model if using the smaller 0.6B version for speed
             # Note: torch.compile on Windows can be unreliable, so we skip if it fails
@@ -694,10 +746,15 @@ class AudioEngine:
                         audio_segments.append(AudioSegment.from_wav(temp_path))
                         if progress_callback: progress_callback((chunk_idx + 1) / total_chunks)
 
-                    # CRITICAL: Delete GPU tensors immediately
+                    # CRITICAL: Delete GPU tensors and aggressively clear cache
                     del wavs
                     if self.device == "cuda":
+                        # Force synchronization to ensure GPU ops are complete
+                        torch.cuda.synchronize()
+                        # Empty cache to release reserved memory
                         torch.cuda.empty_cache()
+                        # Run garbage collection to help PyTorch's allocator
+                        gc.collect()
 
                     duration = time.time() - batch_start
                     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1248,10 +1305,12 @@ class AudioEngine:
                         audio_segments.append(AudioSegment.from_wav(temp_wav))
                         os.unlink(temp_wav)
 
-                        # CRITICAL: Delete GPU tensors immediately after each chunk
+                        # CRITICAL: Delete GPU tensors and aggressively clear cache
                         del wavs, wav
                         if self.device == "cuda":
+                            torch.cuda.synchronize()
                             torch.cuda.empty_cache()
+                            gc.collect()
 
                         duration = time.time() - chunk_start
                         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1681,10 +1740,12 @@ class AudioEngine:
                             if progress_callback:
                                 progress_callback(chapter_progress + chunk_progress)
 
-                        # CRITICAL: Delete GPU tensors immediately
+                        # CRITICAL: Delete GPU tensors and aggressively clear cache
                         del wavs
                         if self.device == "cuda":
+                            torch.cuda.synchronize()
                             torch.cuda.empty_cache()
+                            gc.collect()
 
                         duration = time.time() - batch_start
                         timestamp = datetime.now().strftime("%H:%M:%S")

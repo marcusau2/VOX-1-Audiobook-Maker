@@ -65,7 +65,8 @@ class Vox1App(ctk.CTk):
             "show_vram": True,
             "show_timing": True,
             "debug_mode": False,
-            "smart_import": True
+            "smart_import": True,
+            "attn_implementation": "auto"
         }
 
     def _save_settings(self):
@@ -90,6 +91,9 @@ class Vox1App(ctk.CTk):
             # Save Smart Import setting
             if hasattr(self, 'smart_import_var'):
                 self.settings["smart_import"] = self.smart_import_var.get()
+            # Save Attention Implementation setting
+            if hasattr(self, 'attn_implementation_var'):
+                self.settings["attn_implementation"] = self.attn_implementation_var.get()
             with open(self.settings_file, 'w') as f: json.dump(self.settings, f, indent=2)
         except: pass
 
@@ -512,9 +516,39 @@ class Vox1App(ctk.CTk):
         sep1 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
         sep1.grid(row=3, column=0, sticky="ew", pady=15)
 
+        # Attention Implementation
+        attn_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
+        attn_frame.grid(row=4, column=0, sticky="ew", pady=10)
+        attn_frame.grid_columnconfigure(0, weight=1)
+
+        attn_label = ctk.CTkLabel(attn_frame, text="Attention Implementation (Flash Attention)",
+                                  font=("Roboto", 14, "bold"))
+        attn_label.grid(row=0, column=0, sticky="w", pady=5)
+
+        self.attn_implementation_var = ctk.StringVar(value=self.settings.get("attn_implementation", "auto"))
+        self.attn_menu = ctk.CTkOptionMenu(attn_frame,
+                                           variable=self.attn_implementation_var,
+                                           values=["auto", "flash_attention_2", "sdpa", "eager"],
+                                           width=200)
+        self.attn_menu.grid(row=1, column=0, sticky="w", pady=5)
+
+        attn_info = ctk.CTkLabel(attn_frame,
+            text="ℹ️ Attention method for transformer layers (affects VRAM & speed):\n" +
+                 "   • auto = Detect Flash Attention, fallback to default\n" +
+                 "   • flash_attention_2 = Force Flash Attention 2 (2-4x less VRAM)\n" +
+                 "   • sdpa = PyTorch scaled dot product (built-in optimization)\n" +
+                 "   • eager = Standard attention (no optimization)\n" +
+                 "   Test different methods to find what works best!",
+            font=("Roboto", 11), justify="left", text_color="gray")
+        attn_info.grid(row=2, column=0, sticky="w", pady=5)
+
+        # Separator
+        sep1b = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
+        sep1b.grid(row=5, column=0, sticky="ew", pady=15)
+
         # Chunk Size
         chunk_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        chunk_frame.grid(row=4, column=0, sticky="ew", pady=10)
+        chunk_frame.grid(row=6, column=0, sticky="ew", pady=10)
         chunk_frame.grid_columnconfigure(0, weight=1)
 
         chunk_label = ctk.CTkLabel(chunk_frame, text="Chunk Size (Default: 500 chars)",
@@ -541,16 +575,16 @@ class Vox1App(ctk.CTk):
 
         # Separator
         sep2 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep2.grid(row=5, column=0, sticky="ew", pady=15)
+        sep2.grid(row=7, column=0, sticky="ew", pady=15)
 
         # Quality & Performance Section
         quality_label = ctk.CTkLabel(self.advanced_scroll, text="🎛️ Quality & Performance",
                                      font=("Roboto", 16, "bold"))
-        quality_label.grid(row=6, column=0, pady=(10, 10), sticky="w")
+        quality_label.grid(row=8, column=0, pady=(10, 10), sticky="w")
 
         # Temperature
         temp_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        temp_frame.grid(row=7, column=0, sticky="ew", pady=10)
+        temp_frame.grid(row=9, column=0, sticky="ew", pady=10)
         temp_frame.grid_columnconfigure(0, weight=1)
 
         temp_label = ctk.CTkLabel(temp_frame, text="Temperature (Default: 0.7)",
@@ -576,7 +610,7 @@ class Vox1App(ctk.CTk):
 
         # Repetition Penalty
         rep_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        rep_frame.grid(row=8, column=0, sticky="ew", pady=10)
+        rep_frame.grid(row=10, column=0, sticky="ew", pady=10)
         rep_frame.grid_columnconfigure(0, weight=1)
 
         rep_label = ctk.CTkLabel(rep_frame, text="Repetition Penalty (Default: 1.05)",
@@ -602,15 +636,15 @@ class Vox1App(ctk.CTk):
 
         # Separator
         sep3 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep3.grid(row=9, column=0, sticky="ew", pady=15)
+        sep3.grid(row=11, column=0, sticky="ew", pady=15)
 
         # Monitoring Section
         monitor_label = ctk.CTkLabel(self.advanced_scroll, text="📊 Monitoring & Logging",
                                      font=("Roboto", 16, "bold"))
-        monitor_label.grid(row=10, column=0, pady=(10, 10), sticky="w")
+        monitor_label.grid(row=12, column=0, pady=(10, 10), sticky="w")
 
         monitor_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        monitor_frame.grid(row=11, column=0, sticky="ew", pady=10)
+        monitor_frame.grid(row=13, column=0, sticky="ew", pady=10)
 
         self.show_vram_var = ctk.BooleanVar(value=self.settings.get("show_vram", True))
         self.vram_checkbox = ctk.CTkCheckBox(monitor_frame, text="Show VRAM usage in Activity Log",
@@ -629,12 +663,12 @@ class Vox1App(ctk.CTk):
 
         # Separator
         sep4 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep4.grid(row=12, column=0, sticky="ew", pady=15)
+        sep4.grid(row=14, column=0, sticky="ew", pady=15)
 
         # Quick Tips Section
         tips_label = ctk.CTkLabel(self.advanced_scroll, text="💡 Quick Tips",
                                  font=("Roboto", 16, "bold"))
-        tips_label.grid(row=13, column=0, pady=(10, 10), sticky="w")
+        tips_label.grid(row=15, column=0, pady=(10, 10), sticky="w")
 
         tips_text = (
             "• Start with defaults if unsure\n" 
@@ -645,11 +679,11 @@ class Vox1App(ctk.CTk):
         )
         tips_display = ctk.CTkLabel(self.advanced_scroll, text=tips_text,
                                     font=("Roboto", 11), justify="left", text_color="lightblue")
-        tips_display.grid(row=14, column=0, sticky="w", pady=5)
+        tips_display.grid(row=16, column=0, sticky="w", pady=5)
 
         # Bottom buttons
         button_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        button_frame.grid(row=15, column=0, sticky="ew", pady=20)
+        button_frame.grid(row=17, column=0, sticky="ew", pady=20)
         button_frame.grid_columnconfigure(1, weight=1)
 
         reset_btn = ctk.CTkButton(button_frame, text="Reset to Defaults",
@@ -716,6 +750,7 @@ class Vox1App(ctk.CTk):
         """Reset all advanced settings to defaults."""
         self.batch_size_var.set(2)
         self.chunk_size_var.set(500)
+        self.attn_implementation_var.set("auto")
         self.temperature_var.set(0.7)
         self.repetition_penalty_var.set(1.05)
         self.show_vram_var.set(True)
@@ -758,6 +793,7 @@ class Vox1App(ctk.CTk):
                     f"Advanced settings applied successfully!\n\n" +
                     f"Batch Size: {self.batch_size_var.get()}\n" +
                     f"Chunk Size: {self.chunk_size_var.get()}\n" +
+                    f"Attention: {self.attn_implementation_var.get()}\n" +
                     f"Temperature: {self.temperature_var.get():.1f}\n" +
                     f"Repetition Penalty: {self.repetition_penalty_var.get():.2f}\n\n" +
                     f"Engine reloaded with new settings."))
@@ -792,6 +828,7 @@ class Vox1App(ctk.CTk):
                 top_p = self.settings.get("top_p", 0.8)
                 top_k = self.settings.get("top_k", 20)
                 repetition_penalty = self.settings.get("repetition_penalty", 1.05)
+                attn_implementation = self.settings.get("attn_implementation", "auto")
                 self.engine = AudioEngine(
                     log_callback=self.log,
                     model_size=size,
@@ -800,7 +837,8 @@ class Vox1App(ctk.CTk):
                     temperature=temperature,
                     top_p=top_p,
                     top_k=top_k,
-                    repetition_penalty=repetition_penalty
+                    repetition_penalty=repetition_penalty,
+                    attn_implementation=attn_implementation
                 )
                 self.after(0, lambda: self.status_bar.configure(text=f"System Ready ({size})"))
                 self.after(0, lambda: self.gen_btn.configure(state="normal"))
