@@ -7,7 +7,8 @@
 # - Enables higher batch sizes (5-20 on 12GB, 20-64 on 24GB)
 # ============================================================================
 
-$ErrorActionPreference = "Stop"
+# Use Continue instead of Stop to prevent crashes on minor Python warnings
+$ErrorActionPreference = "Continue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Configuration
@@ -31,9 +32,15 @@ function Download-File {
     param([string]$Url, [string]$OutputPath)
     Write-Host "Downloading: $(Split-Path $OutputPath -Leaf)..." -ForegroundColor Cyan
     try {
+        # Temporarily enforce Stop for download errors so we can catch them
+        $OldEA = $ErrorActionPreference
+        $ErrorActionPreference = "Stop"
         Invoke-WebRequest -Uri $Url -OutFile $OutputPath -UseBasicParsing
+        $ErrorActionPreference = $OldEA
     } catch {
+        $ErrorActionPreference = $OldEA
         Write-Error "Failed to download $Url. Error: $_"
+        exit 1
     }
 }
 
@@ -71,17 +78,21 @@ if (-not (Test-Path $PythonExe)) {
 }
 
 # Check Python version
-$PythonVersionOutput = & $PythonExe --version 2>&1
+$PythonVersionOutput = & $PythonExe --version 2>&1 | Out-String
 Write-Host "Found: $PythonVersionOutput" -ForegroundColor Green
 
 # Check CUDA availability
 Write-Host "Checking CUDA availability..." -ForegroundColor Cyan
-$CudaCheck = & $PythonExe -c "import torch; print(f'CUDA Available: {torch.cuda.is_available()}'); print(f'CUDA Version: {torch.version.cuda}')" 2>&1
-Write-Host $CudaCheck
+try {
+    $CudaCheck = & $PythonExe -c "import torch; print(f'CUDA Available: {torch.cuda.is_available()}'); print(f'CUDA Version: {torch.version.cuda}')" 2>&1 | Out-String
+    Write-Host $CudaCheck
+} catch {
+    Write-Host "Warning: Could not check CUDA status. Proceeding anyway..." -ForegroundColor Yellow
+}
 
 if ($CudaCheck -notmatch "CUDA Available: True") {
     Write-Host ""
-    Write-Host "WARNING: CUDA not available!" -ForegroundColor Yellow
+    Write-Host "WARNING: CUDA not available or not detected!" -ForegroundColor Yellow
     Write-Host "Flash Attention requires CUDA-capable GPU." -ForegroundColor Yellow
     Write-Host ""
     $continue = Read-Host "Continue anyway? (y/n)"
@@ -92,22 +103,30 @@ if ($CudaCheck -notmatch "CUDA Available: True") {
 
 # Check GPU model
 Write-Host "Detecting GPU..." -ForegroundColor Cyan
-$GpuCheck = & $PythonExe -c "import torch; print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}'); print(f'Compute Capability: {torch.cuda.get_device_capability(0) if torch.cuda.is_available() else \"N/A\"}')" 2>&1
-Write-Host $GpuCheck
+try {
+    $GpuCheck = & $PythonExe -c "import torch; print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None'}'); print(f'Compute Capability: {torch.cuda.get_device_capability(0) if torch.cuda.is_available() else 'N/A'}')" 2>&1 | Out-String
+    Write-Host $GpuCheck
+} catch {
+    Write-Host "GPU detection skipped (minor error)." -ForegroundColor DarkGray
+}
 
 # Check if already installed
 Write-Host "Checking if Flash Attention is already installed..." -ForegroundColor Cyan
-$FlashAttnCheck = & $PythonExe -c "import flash_attn; print(f'Flash Attention {flash_attn.__version__} is already installed')" 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host ""
-    Write-Host $FlashAttnCheck -ForegroundColor Green
-    Write-Host ""
-    $reinstall = Read-Host "Reinstall Flash Attention? (y/n)"
-    if ($reinstall -ne "y") {
-        Write-Host "Installation cancelled." -ForegroundColor Yellow
-        Read-Host "Press Enter to exit..."
-        exit 0
+try {
+    $FlashAttnCheck = & $PythonExe -c "import flash_attn; print(f'Flash Attention {flash_attn.__version__} is already installed')" 2>&1 | Out-String
+    if ($LASTEXITCODE -eq 0 -and $FlashAttnCheck -match "already installed") {
+        Write-Host ""
+        Write-Host $FlashAttnCheck -ForegroundColor Green
+        Write-Host ""
+        $reinstall = Read-Host "Reinstall Flash Attention? (y/n)"
+        if ($reinstall -ne "y") {
+            Write-Host "Installation cancelled." -ForegroundColor Yellow
+            Read-Host "Press Enter to exit..."
+            exit 0
+        }
     }
+} catch {
+    # Ignore errors here, means not installed
 }
 
 Write-Host ""
@@ -159,9 +178,13 @@ Write-Host ""
 Write-Host "[4/4] Verifying installation..." -ForegroundColor Yellow
 
 # Verify installation
-$VerifyResult = & $PythonExe -c "import flash_attn; print(f'Flash Attention {flash_attn.__version__} installed successfully')" 2>&1
+try {
+    $VerifyResult = & $PythonExe -c "import flash_attn; print(f'Flash Attention {flash_attn.__version__} installed successfully')" 2>&1 | Out-String
+} catch {
+    $VerifyResult = "Verification command failed."
+}
 
-if ($LASTEXITCODE -eq 0) {
+if ($VerifyResult -match "installed successfully") {
     Write-Host ""
     Write-Host "============================================" -ForegroundColor Green
     Write-Host "    INSTALLATION COMPLETE!" -ForegroundColor Green
