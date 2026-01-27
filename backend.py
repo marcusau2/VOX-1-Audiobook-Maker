@@ -160,9 +160,7 @@ class AudioEngine:
         if self.device == "cuda":
             torch.backends.cudnn.benchmark = False
             torch.backends.cudnn.deterministic = False
-            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:512'
             torch.cuda.empty_cache()
-            self.log("CUDA memory allocator configured for dynamic VRAM growth")
             self._check_vram_and_recommend()
 
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -232,6 +230,7 @@ class AudioEngine:
             gc.collect()
             if self.device == "cuda":
                 torch.cuda.empty_cache()
+                torch.cuda.synchronize()
 
     def _ensure_model(self, model_type):
         if self.active_model_type == model_type: return 
@@ -249,51 +248,47 @@ class AudioEngine:
             self.log(f"Loading RENDER model ({model_id})...")
 
         try:
+            # Explicit bfloat16 to ensure 4090 tensor usage
+            dtype_config = torch.bfloat16
+            
             if self.attn_implementation == "auto":
                 try:
                     import flash_attn
                     self.log(f"Flash Attention {flash_attn.__version__} detected")
                     self.active_model = Qwen3TTSModel.from_pretrained(
-                        model_id, device_map=self.device, dtype=torch.bfloat16,
+                        model_id, device_map=self.device, dtype=dtype_config,
                         attn_implementation='flash_attention_2'
                     )
                     self.log("✅ Flash Attention 2 enabled successfully")
                 except ImportError:
                     self.log("Flash Attention not installed - using default")
                     self.active_model = Qwen3TTSModel.from_pretrained(
-                        model_id, device_map=self.device, dtype=torch.bfloat16
+                        model_id, device_map=self.device, dtype=dtype_config
                     )
                 except Exception as e:
                     self.log(f"Flash Attention failed ({str(e)[:50]}) - using default")
                     self.active_model = Qwen3TTSModel.from_pretrained(
-                        model_id, device_map=self.device, dtype=torch.bfloat16
+                        model_id, device_map=self.device, dtype=dtype_config
                     )
             elif self.attn_implementation == "flash_attention_2":
                 self.log(f"Forcing Flash Attention 2")
                 self.active_model = Qwen3TTSModel.from_pretrained(
-                    model_id, device_map=self.device, dtype=torch.bfloat16,
+                    model_id, device_map=self.device, dtype=dtype_config,
                     attn_implementation='flash_attention_2'
                 )
                 self.log("✅ Flash Attention 2 enabled")
             elif self.attn_implementation in ["sdpa", "eager"]:
                 self.log(f"Using attention method: {self.attn_implementation}")
                 self.active_model = Qwen3TTSModel.from_pretrained(
-                    model_id, device_map=self.device, dtype=torch.bfloat16,
+                    model_id, device_map=self.device, dtype=dtype_config,
                     attn_implementation=self.attn_implementation
                 )
             else:
                 self.log("Using default attention implementation")
                 self.active_model = Qwen3TTSModel.from_pretrained(
-                    model_id, device_map=self.device, dtype=torch.bfloat16
+                    model_id, device_map=self.device, dtype=dtype_config
                 )
-
-            if "0.6B" in model_id and hasattr(torch, "compile"):
-                self.log("Attempting to compile model...")
-                try:
-                    self.active_model = torch.compile(self.active_model, mode="reduce-overhead", fullgraph=False)
-                    self.log("Model compiled successfully")
-                except: pass
-
+            
             self.active_model_type = model_type
             self.log(f"Model loaded successfully.")
             self._log_vram("After Load")
@@ -323,10 +318,15 @@ class AudioEngine:
         output_path = os.path.join(self.output_dir, output_filename)
         self.log(f"Generating Voice Design...")
         with torch.inference_mode():
+            # Reduced max tokens to prevent infinite looping
             wavs, sr = self.active_model.generate_voice_design(
-                text=text, language="English", instruct=description, max_new_tokens=4096
+                text=text, language="English", instruct=description, max_new_tokens=2048
             )
-        sf.write(output_path, wavs[0], sr)
+            # FIX: Immediate CPU move
+            wav_cpu = wavs[0].cpu().float().numpy()
+            del wavs
+        
+        sf.write(output_path, wav_cpu, sr)
         return output_path
 
     def create_voice_clone_preview(self, text, ref_audio_path, output_filename="preview_clone.wav"):
@@ -335,10 +335,15 @@ class AudioEngine:
         ref_text = self._transcribe_audio(ref_audio_path)
         self.log(f"Cloning voice...")
         with torch.inference_mode():
+            # Reduced max tokens to prevent infinite looping
             wavs, sr = self.active_model.generate_voice_clone(
-                text=text, language="English", ref_audio=ref_audio_path, ref_text=ref_text, max_new_tokens=4096
+                text=text, language="English", ref_audio=ref_audio_path, ref_text=ref_text, max_new_tokens=2048
             )
-        sf.write(output_path, wavs[0], sr)
+            # FIX: Immediate CPU move
+            wav_cpu = wavs[0].cpu().float().numpy()
+            del wavs
+
+        sf.write(output_path, wav_cpu, sr)
         return output_path
 
     def render_book(self, text_file_path, master_voice_path, progress_callback=None, stop_event=None):
@@ -348,14 +353,14 @@ class AudioEngine:
         self.log("Step 1/3: Analyzing Master Voice...")
         ref_text = self._transcribe_audio(master_voice_path)
 
-        # CRITICAL: Unload Whisper model immediately after transcription to free ~1GB VRAM
+        # CRITICAL: Unload Whisper and SYNC to free VRAM immediately
         if self.whisper_model is not None:
             del self.whisper_model
             self.whisper_model = None
             gc.collect()
             if self.device == "cuda":
                 torch.cuda.empty_cache()
-                torch.cuda.synchronize() # Ensure memory is actually released
+                torch.cuda.synchronize() # Wait for memory release
             self.log("Whisper model unloaded to free VRAM")
 
         voice_prompt = None
@@ -379,20 +384,6 @@ class AudioEngine:
         total_chunks = len(chunks)
         self.log(f"Starting render of {total_chunks} chunks.")
 
-        if self.device == "cuda":
-            self.log("Warming up GPU...")
-            try:
-                with torch.inference_mode():
-                    warmup_text = ["Test warmup."]
-                    if voice_prompt is not None:
-                        _, _ = self.active_model.generate_voice_clone(
-                            text=warmup_text, language="English", voice_clone_prompt=voice_prompt, max_new_tokens=512)
-                    else:
-                        _, _ = self.active_model.generate_voice_clone(
-                            text=warmup_text, language="English", ref_audio=master_voice_path, ref_text=ref_text, max_new_tokens=512)
-                    torch.cuda.empty_cache()
-            except: pass
-
         # --- SMART BATCHING ---
         indexed_chunks = [(i, c) for i, c in enumerate(chunks) if c.strip()]
         # Sort by length (Longest first) for efficient Flash Attention padding
@@ -400,6 +391,9 @@ class AudioEngine:
         
         results_cache = {}
         processed_count = 0
+        
+        # AUDIT: Max Tokens capped at 1536 (approx 1.5k) to prevent infinite loops
+        MAX_TOKENS = 1536 
         
         with torch.inference_mode():
             for i in range(0, len(indexed_chunks), self.batch_size):
@@ -411,13 +405,15 @@ class AudioEngine:
                 batch_indices = [item[0] for item in batch_items]
                 batch_texts = [item[1] for item in batch_items]
 
-                # --- PERIODIC VRAM LOG ---
-                if i % 20 == 0: self._log_vram(f"Batch {i//self.batch_size}")
-                
-                # Periodic Cleanup
-                if i % 50 == 0 and i > 0:
+                # --- FIX: Aggressive Periodic Cleanup (Every 5 batches) ---
+                if i % 5 == 0 and i > 0:
                     gc.collect()
-                    if self.device == "cuda": torch.cuda.empty_cache()
+                    if self.device == "cuda": 
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+
+                # VRAM Log
+                if i % 20 == 0: self._log_vram(f"Batch {i//self.batch_size}")
 
                 try:
                     batch_start = time.time()
@@ -425,46 +421,51 @@ class AudioEngine:
                     if voice_prompt is not None:
                         wavs, sr = self.active_model.generate_voice_clone(
                             text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                            max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
+                            max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
                             repetition_penalty=self.repetition_penalty, non_streaming_mode=True
                         )
                     else:
                         wavs, sr = self.active_model.generate_voice_clone(
                             text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                            max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
+                            max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
                             repetition_penalty=self.repetition_penalty, non_streaming_mode=True
                         )
 
-                    for idx, (wav, original_index) in enumerate(zip(wavs, batch_indices)):
+                    # --- FIX: Move to CPU *immediately* inside loop ---
+                    # This prevents the GPU tensor from persisting during disk write
+                    wavs_cpu = []
+                    for w in wavs:
+                        if hasattr(w, "cpu"):
+                            wavs_cpu.append(w.cpu().float().numpy())
+                        else:
+                            wavs_cpu.append(w)
+                    
+                    # Explicitly delete GPU reference
+                    del wavs 
+
+                    for idx, (wav, original_index) in enumerate(zip(wavs_cpu, batch_indices)):
                         voice_sig = os.path.basename(master_voice_path)
                         chunk_hash = hashlib.md5((chunks[original_index] + voice_sig).encode('utf-8')).hexdigest()[:8]
-                        # FIX IS HERE: Changed temp_path to temp_wav to match the write command
                         temp_wav = os.path.join(self.temp_dir, f"chunk_{original_index:04d}_{chunk_hash}.wav")
                         sf.write(temp_wav, wav, sr)
                         results_cache[original_index] = AudioSegment.from_wav(temp_wav)
                         
-                    # --- DETAILED LOGGING RESTORED ---
                     duration = time.time() - batch_start
                     processed_count += len(batch_items)
                     speed_per_chunk = duration / len(batch_items)
                     progress_pct = (processed_count / total_chunks) * 100
                     
-                    # Log timing and progress
                     timestamp = datetime.now().strftime("%H:%M:%S")
                     
                     if self.device == "cuda":
-                         allocated = torch.cuda.memory_allocated() / 1024**3
-                         self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk | VRAM: {allocated:.1f}GB")
+                         # CHANGED TO MEMORY_RESERVED to match Task Manager
+                         reserved = torch.cuda.memory_reserved() / 1024**3
+                         self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk | VRAM: {reserved:.1f}GB")
                     else:
                          self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk")
 
                     if progress_callback: 
                         progress_callback(processed_count / total_chunks)
-
-                    del wavs
-                    if self.device == "cuda":
-                        torch.cuda.synchronize()
-                        torch.cuda.empty_cache()
 
                 except Exception as e:
                     self.log(f"Error in batch: {e}")
@@ -609,6 +610,9 @@ class AudioEngine:
         chapters_info = []
 
         self.log(f"Step 3/3: Rendering {total_chapters} chapters...")
+        
+        # AUDIT: Cap tokens for chapter rendering too
+        MAX_TOKENS = 1536
 
         for chapter_idx, chapter in enumerate(chapters):
             if stop_event and stop_event.is_set(): return None
@@ -634,22 +638,38 @@ class AudioEngine:
                     batch_indices = [item[0] for item in batch_items]
                     batch_texts = [item[1] for item in batch_items]
 
+                    # --- FIX: Periodic Cleanup (Every 5 batches) ---
+                    if i % 5 == 0 and i > 0:
+                        gc.collect()
+                        if self.device == "cuda": 
+                            torch.cuda.empty_cache()
+                            torch.cuda.synchronize()
+
                     try:
                         batch_start = time.time()
                         if voice_prompt is not None:
                             wavs, sr = self.active_model.generate_voice_clone(
                                 text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                                max_new_tokens=4096, temperature=self.temperature, top_p=self.top_p,
+                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
                                 repetition_penalty=self.repetition_penalty, non_streaming_mode=True
                             )
                         else:
                             wavs, sr = self.active_model.generate_voice_clone(
                                 text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                                max_new_tokens=4096, temperature=self.temperature, top_p=self.top_p,
+                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
                                 repetition_penalty=self.repetition_penalty, non_streaming_mode=True
                             )
                         
-                        for wav, original_index in zip(wavs, batch_indices):
+                        # --- FIX: Move to CPU *immediately* ---
+                        wavs_cpu = []
+                        for w in wavs:
+                            if hasattr(w, "cpu"):
+                                wavs_cpu.append(w.cpu().float().numpy())
+                            else:
+                                wavs_cpu.append(w)
+                        del wavs
+
+                        for wav, original_index in zip(wavs_cpu, batch_indices):
                             temp_wav = os.path.join(self.temp_dir, f"temp_ch{chapter_idx}_{original_index}.wav")
                             sf.write(temp_wav, wav, sr)
                             results_cache[original_index] = AudioSegment.from_wav(temp_wav)
@@ -662,15 +682,13 @@ class AudioEngine:
                         
                         timestamp = datetime.now().strftime("%H:%M:%S")
                         if self.device == "cuda":
-                            vram = torch.cuda.memory_allocated() / 1024**3
-                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk | VRAM: {vram:.1f}GB")
+                            # CHANGED TO MEMORY_RESERVED to match Task Manager
+                            reserved = torch.cuda.memory_reserved() / 1024**3
+                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk | VRAM: {reserved:.1f}GB")
                         else:
                             self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk")
                         
                         if progress_callback: progress_callback((chapter_idx + (processed_count/len(chunks))) / total_chapters)
-
-                        del wavs
-                        if self.device == "cuda": torch.cuda.empty_cache()
                         
                     except Exception as e:
                         self.log(f"Error in batch: {e}")
@@ -693,6 +711,15 @@ class AudioEngine:
                 
                 # Progress update
                 if progress_callback: progress_callback((chapter_idx + 1) / total_chapters)
+            
+            # --- FIX: HARD MEMORY RESET BETWEEN CHAPTERS ---
+            self.log(f"Chapter {chapter_idx+1} complete. Performing hard memory reset...")
+            del results_cache
+            del audio_segments
+            gc.collect()
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
 
         if chapter_audio_files:
             output_path = os.path.join(self.output_dir, f"{book_title}_audiobook.m4b")
@@ -780,7 +807,8 @@ class AudioEngine:
         os.makedirs(book_output_dir, exist_ok=True)
 
         ref_text = self._transcribe_audio(master_voice_path)
-# CRITICAL: Unload Whisper model to free VRAM
+        
+        # CRITICAL: Unload Whisper and SYNC
         if self.whisper_model is not None:
             del self.whisper_model
             self.whisper_model = None
@@ -798,6 +826,9 @@ class AudioEngine:
 
         chapter_audio_files = []
         chapters_info = []
+        
+        # AUDIT: Cap tokens to prevent loops
+        MAX_TOKENS = 1536
 
         for chapter_idx, chapter in enumerate(chapters_data):
             if stop_event and stop_event.is_set(): return None
@@ -824,20 +855,36 @@ class AudioEngine:
                     batch_indices = [x[0] for x in batch_items]
                     batch_texts = [x[1] for x in batch_items]
 
+                    # --- FIX: Periodic Cleanup (Every 5 batches) ---
+                    if i % 5 == 0 and i > 0:
+                        gc.collect()
+                        if self.device == "cuda": 
+                            torch.cuda.empty_cache()
+                            torch.cuda.synchronize()
+
                     try:
                         batch_start = time.time()
                         if voice_prompt:
                             wavs, sr = self.active_model.generate_voice_clone(
                                 text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                                max_new_tokens=4096, temperature=self.temperature, top_p=self.top_p, 
+                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
                                 repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
                         else:
                             wavs, sr = self.active_model.generate_voice_clone(
                                 text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                                max_new_tokens=4096, temperature=self.temperature, top_p=self.top_p, 
+                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
                                 repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
                         
-                        for wav, idx in zip(wavs, batch_indices):
+                        # --- FIX: Move to CPU *immediately* ---
+                        wavs_cpu = []
+                        for w in wavs:
+                            if hasattr(w, "cpu"):
+                                wavs_cpu.append(w.cpu().float().numpy())
+                            else:
+                                wavs_cpu.append(w)
+                        del wavs
+
+                        for wav, idx in zip(wavs_cpu, batch_indices):
                             temp_wav = os.path.join(self.temp_dir, f"tmp_{chapter_idx}_{idx}.wav")
                             sf.write(temp_wav, wav, sr)
                             results_cache[idx] = AudioSegment.from_wav(temp_wav)
@@ -850,12 +897,12 @@ class AudioEngine:
                         
                         timestamp = datetime.now().strftime("%H:%M:%S")
                         if self.device == "cuda":
-                            vram = torch.cuda.memory_allocated() / 1024**3
-                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk | VRAM: {vram:.1f}GB")
+                            # CHANGED TO MEMORY_RESERVED to match Task Manager
+                            reserved = torch.cuda.memory_reserved() / 1024**3
+                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk | VRAM: {reserved:.1f}GB")
                         else:
                             self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk")
-                        
-                        del wavs; torch.cuda.empty_cache()
+                            
                     except Exception as e:
                         self.log(f"Batch error: {e}")
                         gc.collect()
@@ -876,6 +923,15 @@ class AudioEngine:
                 chapters_info.append({'title': label})
                 
                 if progress_callback: progress_callback((chapter_idx+1)/len(chapters_data))
+            
+            # --- FIX: HARD MEMORY RESET BETWEEN CHAPTERS ---
+            self.log(f"Chapter {chapter_idx+1} complete. Performing hard memory reset...")
+            del results_cache
+            del audio_segments
+            gc.collect()
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
 
         if chapter_audio_files:
             m4b_path = os.path.join(book_output_dir, f"{book_title}.m4b")
