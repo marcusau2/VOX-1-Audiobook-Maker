@@ -438,7 +438,8 @@ class AudioEngine:
                     for idx, (wav, original_index) in enumerate(zip(wavs, batch_indices)):
                         voice_sig = os.path.basename(master_voice_path)
                         chunk_hash = hashlib.md5((chunks[original_index] + voice_sig).encode('utf-8')).hexdigest()[:8]
-                        temp_path = os.path.join(self.temp_dir, f"chunk_{original_index:04d}_{chunk_hash}.wav")
+                        # FIX IS HERE: Changed temp_path to temp_wav to match the write command
+                        temp_wav = os.path.join(self.temp_dir, f"chunk_{original_index:04d}_{chunk_hash}.wav")
                         sf.write(temp_wav, wav, sr)
                         results_cache[original_index] = AudioSegment.from_wav(temp_wav)
                         
