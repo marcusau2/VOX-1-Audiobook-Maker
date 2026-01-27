@@ -18,7 +18,7 @@ GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-
 *Deep, gritty male voice*
 *Cinematic spaceship captain*
 
-**[▶️ LISTEN](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Atmospheric%20Sci-Fi_audiobook.mp3)**
+<video src="https://github.com/user-attachments/files/24873400/Atmospheric.Sci-Fi_audiobook.mp3" controls="controls"></video>
 
 </td>
 <td width="33%" align="center">
