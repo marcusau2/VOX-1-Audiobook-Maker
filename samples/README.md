@@ -12,12 +12,7 @@ These samples demonstrate VOX-1's **Voice Design** feature powered by Qwen3-TTS.
 **Text:**
 > "Log entry 492. The engine hum is the only thing keeping me company out here. We passed the event horizon three days ago, or maybe it was three years. Time stretches thin when you're this close to the void. The navigation systems are green, but the sensors... they keep picking up a ghost signal. Something is watching us from the dark."
 
-**Listen:**
-
-<audio controls style="width: 100%; max-width: 600px;">
-  <source src="Atmospheric Sci-Fi_audiobook.mp3" type="audio/mpeg">
-  Your browser does not support the audio element.
-</audio>
+**[▶️ PLAY AUDIO](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Atmospheric%20Sci-Fi_audiobook.mp3)** | **[⬇️ DOWNLOAD](Atmospheric%20Sci-Fi_audiobook.mp3)**
 
 ---
 
@@ -29,12 +24,7 @@ These samples demonstrate VOX-1's **Voice Design** feature powered by Qwen3-TTS.
 **Text:**
 > It wasn't a sword that saved the kingdom, but a whisper. The old dragon slept not on a pile of gold, but on a mountain of forgotten books. He opened one eye, revealing a slit of molten gold, and asked the knight a question that no steel could answer: 'Why have you come to a place where only memories survive?
 
-**Listen:**
-
-<audio controls style="width: 100%; max-width: 600px;">
-  <source src="Classic Fantasy_audiobook.mp3" type="audio/mpeg">
-  Your browser does not support the audio element.
-</audio>
+**[▶️ PLAY AUDIO](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Classic%20Fantasy_audiobook.mp3)** | **[⬇️ DOWNLOAD](Classic%20Fantasy_audiobook.mp3)**
 
 ---
 
@@ -46,12 +36,7 @@ These samples demonstrate VOX-1's **Voice Design** feature powered by Qwen3-TTS.
 **Text:**
 > It was the kind of rain that didn't wash the city clean; it just made the grime slicker. He walked into my office wearing a cheap suit and a desperate expression. I should have told him to get lost, but curiosity is a dangerous thing, and I've always lived dangerously.
 
-**Listen:**
-
-<audio controls style="width: 100%; max-width: 600px;">
-  <source src="Noir Detective_audiobook.mp3" type="audio/mpeg">
-  Your browser does not support the audio element.
-</audio>
+**[▶️ PLAY AUDIO](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Noir%20Detective_audiobook.mp3)** | **[⬇️ DOWNLOAD](Noir%20Detective_audiobook.mp3)**
 
 ---
 

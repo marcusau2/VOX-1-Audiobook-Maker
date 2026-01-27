@@ -10,31 +10,39 @@ GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-
 
 **Create voices from text descriptions alone** - no audio samples needed!
 
-### 🎬 Atmospheric Sci-Fi
-> *"A deep, gritty male voice. Calm but weary. Cinematic spaceship captain tone."*
+<table>
+<tr>
+<td width="33%" align="center">
 
-<audio controls style="width: 100%; max-width: 500px;">
-  <source src="samples/Atmospheric Sci-Fi_audiobook.mp3" type="audio/mpeg">
-  Your browser does not support the audio element.
-</audio>
+### 🎬 Atmospheric Sci-Fi
+*Deep, gritty male voice*
+*Cinematic spaceship captain*
+
+**[▶️ LISTEN](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Atmospheric%20Sci-Fi_audiobook.mp3)**
+
+</td>
+<td width="33%" align="center">
 
 ### 🐉 Classic Fantasy
-> *"Elderly British voice. Warm and raspy, like a grandfather telling stories by a fireplace."*
+*Elderly British voice*
+*Grandfather storyteller*
 
-<audio controls style="width: 100%; max-width: 500px;">
-  <source src="samples/Classic Fantasy_audiobook.mp3" type="audio/mpeg">
-  Your browser does not support the audio element.
-</audio>
+**[▶️ LISTEN](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Classic%20Fantasy_audiobook.mp3)**
+
+</td>
+<td width="33%" align="center">
 
 ### 🕵️ Noir Detective
-> *"Low, smoky female voice. 1940s film noir style with vocal fry."*
+*Smoky 1940s female voice*
+*Film noir style*
 
-<audio controls style="width: 100%; max-width: 500px;">
-  <source src="samples/Noir Detective_audiobook.mp3" type="audio/mpeg">
-  Your browser does not support the audio element.
-</audio>
+**[▶️ LISTEN](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Noir%20Detective_audiobook.mp3)**
 
-**[View Full Samples Page with Complete Descriptions →](samples/)**
+</td>
+</tr>
+</table>
+
+**[📄 View Full Descriptions & Text →](samples/)**
 
 These voices were created using **Voice Design** - just describe the voice you want, no cloning needed! VOX-1 also supports **Voice Cloning** to copy any voice from a 10-30 second sample.
 
