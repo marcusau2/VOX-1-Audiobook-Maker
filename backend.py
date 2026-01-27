@@ -23,10 +23,10 @@ import hashlib
 def smart_import_audio(input_path, log_callback=None):
     """
     Optimizes audio file for voice cloning:
-    - Normalizes volume to -20 dBFS (DISABLED to preserve quality)
-    - Finds best 5-second segment if file is long
+    - Normalizes volume (DISABLED)
+    - Finds best 5-second segment
     - Strips silence
-    - Exports as 16kHz mono WAV
+    - Exports as WAV (Original Sample Rate)
     """
     def log(msg):
         if log_callback:
@@ -39,13 +39,12 @@ def smart_import_audio(input_path, log_callback=None):
         audio = AudioSegment.from_file(input_path)
         original_duration = len(audio) / 1000  # Convert to seconds
 
-        # 2. Convert to mono (Required for model)
+        # 2. Convert to mono (Required for model structure, but keep sample rate high)
         audio = audio.set_channels(1)
         
         # --- DISABLED NORMALIZATION to preserve original dynamics ---
         # change_in_dBFS = -20 - audio.dBFS
         # audio = audio.apply_gain(change_in_dBFS)
-        # log(f"Smart Import: Normalized volume to -20 dBFS")
         log("Smart Import: Converted to mono (Volume untouched)")
 
         # 3. If <= 10 seconds, just strip silence and return
@@ -57,7 +56,10 @@ def smart_import_audio(input_path, log_callback=None):
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, "master_voice_optimized.wav")
 
-            audio.export(output_path, format="wav", parameters=["-ar", "16000"])
+            # REMOVED ["-ar", "16000"] to prevent aliasing/hiss. 
+            # We now keep original sample rate.
+            audio.export(output_path, format="wav") 
+            
             duration_msg = f"{len(audio)/1000:.1f}s"
             return output_path, f"Optimized {duration_msg} clip"
 
@@ -70,7 +72,8 @@ def smart_import_audio(input_path, log_callback=None):
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "master_voice_optimized.wav")
 
-        best_segment.export(output_path, format="wav", parameters=["-ar", "16000"])
+        # REMOVED ["-ar", "16000"] to prevent aliasing/hiss.
+        audio.export(output_path, format="wav")
 
         start_min = int(segment_start // 60)
         start_sec = int(segment_start % 60)
