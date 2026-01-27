@@ -24,7 +24,7 @@ def smart_import_audio(input_path, log_callback=None):
     """
     Optimizes audio file for voice cloning:
     - Normalizes volume to -20 dBFS
-    - Finds best 15-second segment if file is long
+    - Finds best 5-second segment (UPDATED) if file is long
     - Strips silence
     - Exports as 16kHz mono WAV
     """
@@ -45,8 +45,9 @@ def smart_import_audio(input_path, log_callback=None):
         audio = audio.apply_gain(change_in_dBFS)
         log(f"Smart Import: Normalized volume to -20 dBFS")
 
-        # 3. If <= 20 seconds, just strip silence and return
-        if len(audio) <= 20000:  # milliseconds
+        # 3. If <= 10 seconds, just strip silence and return
+        # Reduced threshold since we only want ~5s clips now
+        if len(audio) <= 10000:  
             log("Smart Import: File is short, optimizing...")
             audio = strip_silence(audio, silence_thresh=-40, padding=100)
 
@@ -58,9 +59,10 @@ def smart_import_audio(input_path, log_callback=None):
             duration_msg = f"{len(audio)/1000:.1f}s"
             return output_path, f"Optimized {duration_msg} clip"
 
-        # 4. For long files, find best 15-second segment
-        log("Smart Import: Analyzing speech patterns...")
-        best_segment, segment_start = find_best_speech_segment(audio, target_duration=15000)
+        # 4. For long files, find best 5-second segment (FIXED: Down from 15s)
+        log("Smart Import: Analyzing speech patterns for best 5s clip...")
+        # TARGET DURATION CHANGED TO 5000ms (5s)
+        best_segment, segment_start = find_best_speech_segment(audio, target_duration=5000)
         best_segment = strip_silence(best_segment, silence_thresh=-40, padding=100)
 
         output_dir = "VOX-Output"
@@ -82,7 +84,8 @@ def smart_import_audio(input_path, log_callback=None):
         if log_callback: log_callback(f"Smart Import error: {str(e)}")
         raise
 
-def find_best_speech_segment(audio, target_duration=15000):
+# UPDATED DEFAULT TO 5000ms
+def find_best_speech_segment(audio, target_duration=5000):
     samples = np.array(audio.get_array_of_samples())
     sample_rate = audio.frame_rate
     frame_length = int(sample_rate * 0.01)
@@ -140,7 +143,7 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 # ============================================================================
 
 class AudioEngine:
-    # REVERTED TO DEFAULTS: You control these via the UI now.
+    # Defaults reverted to standard creative values (0.7/0.8) as requested
     def __init__(self, log_callback=print, model_size="1.7B", batch_size=5, chunk_size=500,
                  temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05,
                  attn_implementation="auto"):
@@ -811,7 +814,7 @@ class AudioEngine:
             self.log(f"FFMPEG Error: {e}")
             raise
 
-    # --- RESTORED HELPER FUNCTION ---
+    # --- RESTORED: Helper functions for Manifest Rendering ---
     def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None):
         return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event)
 
