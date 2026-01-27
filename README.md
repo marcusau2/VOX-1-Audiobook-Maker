@@ -13,19 +13,28 @@ GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-
 ### 🎬 Atmospheric Sci-Fi
 > *"A deep, gritty male voice. Calm but weary. Cinematic spaceship captain tone."*
 
-🔊 [Listen: Atmospheric Sci-Fi](samples/Atmospheric%20Sci-Fi_audiobook.mp3)
+<audio controls style="width: 100%; max-width: 500px;">
+  <source src="samples/Atmospheric Sci-Fi_audiobook.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
 
 ### 🐉 Classic Fantasy
 > *"Elderly British voice. Warm and raspy, like a grandfather telling stories by a fireplace."*
 
-🔊 [Listen: Classic Fantasy](samples/Classic%20Fantasy_audiobook.mp3)
+<audio controls style="width: 100%; max-width: 500px;">
+  <source src="samples/Classic Fantasy_audiobook.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
 
 ### 🕵️ Noir Detective
 > *"Low, smoky female voice. 1940s film noir style with vocal fry."*
 
-🔊 [Listen: Noir Detective](samples/Noir%20Detective_audiobook.mp3)
+<audio controls style="width: 100%; max-width: 500px;">
+  <source src="samples/Noir Detective_audiobook.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
 
-**[View All Samples & Descriptions →](samples/)**
+**[View Full Samples Page with Complete Descriptions →](samples/)**
 
 These voices were created using **Voice Design** - just describe the voice you want, no cloning needed! VOX-1 also supports **Voice Cloning** to copy any voice from a 10-30 second sample.
 
