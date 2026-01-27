@@ -1,0 +1,5 @@
+prompt:
+An elderly, warm, and raspy voice. British accent. The tone is whimsical and mysterious, like a grandfather telling a story by a fireplace. Expressive intonation.
+
+text:
+It wasn't a sword that saved the kingdom, but a whisper. The old dragon slept not on a pile of gold, but on a mountain of forgotten books. He opened one eye, revealing a slit of molten gold, and asked the knight a question that no steel could answer: 'Why have you come to a place where only memories survive?

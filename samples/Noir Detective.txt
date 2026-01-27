@@ -1,0 +1,6 @@
+prompt:
+A low, smoky female voice. 1940s film noir style. Cynical and smooth, with a hint of vocal fry. The pacing is slow and languid.
+
+
+text:
+It was the kind of rain that didn't wash the city clean; it just made the grime slicker. He walked into my office wearing a cheap suit and a desperate expression. I should have told him to get lost, but curiosity is a dangerous thing, and I've always lived dangerously.

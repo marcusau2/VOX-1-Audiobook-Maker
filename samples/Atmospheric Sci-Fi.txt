@@ -1,0 +1,5 @@
+prompt:
+A deep, gritty male voice. Calm but weary. The tone is serious and cinematic, like a captain recording a log entry in a quiet spaceship. Slow pacing with pauses for effect.
+
+text:
+"Log entry 492. The engine hum is the only thing keeping me company out here. We passed the event horizon three days ago, or maybe it was three years. Time stretches thin when you're this close to the void. The navigation systems are green, but the sensors... they keep picking up a ghost signal. Something is watching us from the dark."
