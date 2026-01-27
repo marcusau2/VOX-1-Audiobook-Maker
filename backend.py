@@ -23,8 +23,8 @@ import hashlib
 def smart_import_audio(input_path, log_callback=None):
     """
     Optimizes audio file for voice cloning:
-    - Normalizes volume to -20 dBFS
-    - Finds best 5-second segment (UPDATED) if file is long
+    - Normalizes volume to -20 dBFS (DISABLED to preserve quality)
+    - Finds best 5-second segment if file is long
     - Strips silence
     - Exports as 16kHz mono WAV
     """
@@ -39,15 +39,17 @@ def smart_import_audio(input_path, log_callback=None):
         audio = AudioSegment.from_file(input_path)
         original_duration = len(audio) / 1000  # Convert to seconds
 
-        # 2. Convert to mono and normalize volume
+        # 2. Convert to mono (Required for model)
         audio = audio.set_channels(1)
-        change_in_dBFS = -20 - audio.dBFS
-        audio = audio.apply_gain(change_in_dBFS)
-        log(f"Smart Import: Normalized volume to -20 dBFS")
+        
+        # --- DISABLED NORMALIZATION to preserve original dynamics ---
+        # change_in_dBFS = -20 - audio.dBFS
+        # audio = audio.apply_gain(change_in_dBFS)
+        # log(f"Smart Import: Normalized volume to -20 dBFS")
+        log("Smart Import: Converted to mono (Volume untouched)")
 
         # 3. If <= 10 seconds, just strip silence and return
-        # Reduced threshold since we only want ~5s clips now
-        if len(audio) <= 10000:  
+        if len(audio) <= 10000:
             log("Smart Import: File is short, optimizing...")
             audio = strip_silence(audio, silence_thresh=-40, padding=100)
 
@@ -59,9 +61,8 @@ def smart_import_audio(input_path, log_callback=None):
             duration_msg = f"{len(audio)/1000:.1f}s"
             return output_path, f"Optimized {duration_msg} clip"
 
-        # 4. For long files, find best 5-second segment (FIXED: Down from 15s)
+        # 4. For long files, find best 5-second segment (Stability Optimization)
         log("Smart Import: Analyzing speech patterns for best 5s clip...")
-        # TARGET DURATION CHANGED TO 5000ms (5s)
         best_segment, segment_start = find_best_speech_segment(audio, target_duration=5000)
         best_segment = strip_silence(best_segment, silence_thresh=-40, padding=100)
 
@@ -84,7 +85,6 @@ def smart_import_audio(input_path, log_callback=None):
         if log_callback: log_callback(f"Smart Import error: {str(e)}")
         raise
 
-# UPDATED DEFAULT TO 5000ms
 def find_best_speech_segment(audio, target_duration=5000):
     samples = np.array(audio.get_array_of_samples())
     sample_rate = audio.frame_rate
@@ -143,7 +143,7 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 # ============================================================================
 
 class AudioEngine:
-    # Defaults reverted to standard creative values (0.7/0.8) as requested
+    # Defaults: Batch Size 5 (Safe), Temp 0.7 (Creative)
     def __init__(self, log_callback=print, model_size="1.7B", batch_size=5, chunk_size=500,
                  temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05,
                  attn_implementation="auto"):
@@ -252,12 +252,11 @@ class AudioEngine:
             self.log(f"Loading RENDER model ({model_id})...")
 
         try:
-            # Default to float16 (safe for Pascal/Turing/Older)
-            dtype_config = torch.float16
+            # Universal Dtype Check
+            dtype_config = torch.float16 # Default
             
             if self.device == "cuda":
                 try:
-                    # Check CUDA capability (Ampere is 8.0+)
                     major_version = torch.cuda.get_device_capability()[0]
                     if major_version >= 8:
                         dtype_config = torch.bfloat16
@@ -334,11 +333,11 @@ class AudioEngine:
         output_path = os.path.join(self.output_dir, output_filename)
         self.log(f"Generating Voice Design...")
         with torch.inference_mode():
-            # Reduced max tokens to prevent infinite looping
+            # Cap tokens at 2048 to prevent loops, enough for previews
             wavs, sr = self.active_model.generate_voice_design(
                 text=text, language="English", instruct=description, max_new_tokens=2048
             )
-            # FIX: Check if it's already a numpy array (no .cpu() needed) or a Tensor
+            # SAFE CPU MOVE: Check if it's already a numpy array
             wav_out = wavs[0]
             if hasattr(wav_out, 'cpu'):
                 wav_cpu = wav_out.cpu().float().numpy()
@@ -355,11 +354,11 @@ class AudioEngine:
         ref_text = self._transcribe_audio(ref_audio_path)
         self.log(f"Cloning voice...")
         with torch.inference_mode():
-            # Reduced max tokens to prevent infinite looping
+            # Cap tokens at 2048
             wavs, sr = self.active_model.generate_voice_clone(
                 text=text, language="English", ref_audio=ref_audio_path, ref_text=ref_text, max_new_tokens=2048
             )
-            # FIX: Check if it's already a numpy array (no .cpu() needed) or a Tensor
+            # SAFE CPU MOVE
             wav_out = wavs[0]
             if hasattr(wav_out, 'cpu'):
                 wav_cpu = wav_out.cpu().float().numpy()
@@ -377,14 +376,14 @@ class AudioEngine:
         self.log("Step 1/3: Analyzing Master Voice...")
         ref_text = self._transcribe_audio(master_voice_path)
 
-        # CRITICAL: Unload Whisper and SYNC to free VRAM immediately
+        # CRITICAL: Unload Whisper and SYNC
         if self.whisper_model is not None:
             del self.whisper_model
             self.whisper_model = None
             gc.collect()
             if self.device == "cuda":
                 torch.cuda.empty_cache()
-                torch.cuda.synchronize() # Wait for memory release
+                torch.cuda.synchronize()
             self.log("Whisper model unloaded to free VRAM")
 
         voice_prompt = None
@@ -416,9 +415,6 @@ class AudioEngine:
         results_cache = {}
         processed_count = 0
         
-        # AUDIT: Max Tokens capped at 1536 (approx 1.5k) to prevent infinite loops
-        MAX_TOKENS = 1536 
-        
         with torch.inference_mode():
             for i in range(0, len(indexed_chunks), self.batch_size):
                 if stop_event and stop_event.is_set():
@@ -445,26 +441,23 @@ class AudioEngine:
                     if voice_prompt is not None:
                         wavs, sr = self.active_model.generate_voice_clone(
                             text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                            max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
+                            max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
                             repetition_penalty=self.repetition_penalty, non_streaming_mode=True
                         )
                     else:
                         wavs, sr = self.active_model.generate_voice_clone(
                             text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                            max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
+                            max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
                             repetition_penalty=self.repetition_penalty, non_streaming_mode=True
                         )
 
                     # --- FIX: Move to CPU *immediately* inside loop ---
-                    # This prevents the GPU tensor from persisting during disk write
                     wavs_cpu = []
                     for w in wavs:
                         if hasattr(w, "cpu"):
                             wavs_cpu.append(w.cpu().float().numpy())
                         else:
                             wavs_cpu.append(w)
-                    
-                    # Explicitly delete GPU reference
                     del wavs 
 
                     for idx, (wav, original_index) in enumerate(zip(wavs_cpu, batch_indices)):
@@ -482,7 +475,6 @@ class AudioEngine:
                     timestamp = datetime.now().strftime("%H:%M:%S")
                     
                     if self.device == "cuda":
-                         # CHANGED TO MEMORY_RESERVED to match Task Manager
                          reserved = torch.cuda.memory_reserved() / 1024**3
                          self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk | VRAM: {reserved:.1f}GB")
                     else:
@@ -493,7 +485,6 @@ class AudioEngine:
 
                 except Exception as e:
                     self.log(f"Error in batch: {e}")
-                    # Force VRAM cleanup on error to survive
                     gc.collect()
                     if self.device == "cuda": torch.cuda.empty_cache()
                     continue
@@ -627,192 +618,6 @@ class AudioEngine:
         text = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', text)
         text = re.sub(r'[ \t]+', ' ', text)
         return re.sub(r'\n{3,}', '\n\n', text).strip()
-
-    def _render_book_with_chapters(self, chapters, book_title, master_voice_path, ref_text, voice_prompt, progress_callback, stop_event):
-        total_chapters = len(chapters)
-        chapter_audio_files = []
-        chapters_info = []
-
-        self.log(f"Step 3/3: Rendering {total_chapters} chapters...")
-        
-        # AUDIT: Cap tokens for chapter rendering too
-        MAX_TOKENS = 1536
-
-        for chapter_idx, chapter in enumerate(chapters):
-            if stop_event and stop_event.is_set(): return None
-            
-            chapter_title = chapter['title']
-            chapter_text = chapter['text']
-            self.log(f"--- Chapter {chapter_idx + 1}/{total_chapters}: {chapter_title} ---")
-
-            chunks = self._chunk_text(chapter_text)
-            
-            # Smart Batching
-            indexed_chunks = [(i, c) for i, c in enumerate(chunks) if c.strip()]
-            indexed_chunks.sort(key=lambda x: len(x[1]), reverse=True)
-            
-            results_cache = {}
-            processed_count = 0
-            
-            with torch.inference_mode():
-                for i in range(0, len(indexed_chunks), self.batch_size):
-                    if stop_event and stop_event.is_set(): return None
-                    
-                    batch_items = indexed_chunks[i : i + self.batch_size]
-                    batch_indices = [item[0] for item in batch_items]
-                    batch_texts = [item[1] for item in batch_items]
-
-                    # --- FIX: Periodic Cleanup (Every 5 batches) ---
-                    if i % 5 == 0 and i > 0:
-                        gc.collect()
-                        if self.device == "cuda": 
-                            torch.cuda.empty_cache()
-                            torch.cuda.synchronize()
-
-                    try:
-                        batch_start = time.time()
-                        if voice_prompt is not None:
-                            wavs, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
-                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True
-                            )
-                        else:
-                            wavs, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p,
-                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True
-                            )
-                        
-                        # --- FIX: Move to CPU *immediately* ---
-                        wavs_cpu = []
-                        for w in wavs:
-                            if hasattr(w, "cpu"):
-                                wavs_cpu.append(w.cpu().float().numpy())
-                            else:
-                                wavs_cpu.append(w)
-                        del wavs
-
-                        for wav, original_index in zip(wavs_cpu, batch_indices):
-                            temp_wav = os.path.join(self.temp_dir, f"temp_ch{chapter_idx}_{original_index}.wav")
-                            sf.write(temp_wav, wav, sr)
-                            results_cache[original_index] = AudioSegment.from_wav(temp_wav)
-                            os.unlink(temp_wav)
-                        
-                        # --- DETAILED LOGGING ---
-                        duration = time.time() - batch_start
-                        processed_count += len(batch_items)
-                        speed = duration / len(batch_items)
-                        
-                        timestamp = datetime.now().strftime("%H:%M:%S")
-                        if self.device == "cuda":
-                            # CHANGED TO MEMORY_RESERVED to match Task Manager
-                            reserved = torch.cuda.memory_reserved() / 1024**3
-                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk | VRAM: {reserved:.1f}GB")
-                        else:
-                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk")
-                        
-                        if progress_callback: progress_callback((chapter_idx + (processed_count/len(chunks))) / total_chapters)
-                        
-                    except Exception as e:
-                        self.log(f"Error in batch: {e}")
-                        gc.collect()
-                        continue
-            
-            # Stitch
-            audio_segments = []
-            for i in range(len(chunks)):
-                if i in results_cache: audio_segments.append(results_cache[i])
-            
-            if audio_segments:
-                chapter_audio = audio_segments[0]
-                for seg in audio_segments[1:]: chapter_audio += seg
-                
-                c_path = os.path.join(self.temp_dir, f"chapter_{chapter_idx:03d}.wav")
-                chapter_audio.export(c_path, format="wav")
-                chapter_audio_files.append(c_path)
-                chapters_info.append({'title': chapter_title})
-                
-                # Progress update
-                if progress_callback: progress_callback((chapter_idx + 1) / total_chapters)
-            
-            # --- FIX: HARD MEMORY RESET BETWEEN CHAPTERS ---
-            self.log(f"Chapter {chapter_idx+1} complete. Performing hard memory reset...")
-            del results_cache
-            del audio_segments
-            gc.collect()
-            if self.device == "cuda":
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
-
-        if chapter_audio_files:
-            output_path = os.path.join(self.output_dir, f"{book_title}_audiobook.m4b")
-            self._create_m4b_with_chapters(chapter_audio_files, chapters_info, output_path, book_title=book_title)
-            return output_path
-        else:
-            raise RuntimeError("No audio generated.")
-
-    def _generate_ffmetadata(self, chapters_info, book_title=None, artist=None):
-        lines = [";FFMETADATA1"]
-        if book_title: lines.append(f"title={book_title}")
-        if artist: lines.append(f"artist={artist}")
-        lines.append("")
-        for i, chapter in enumerate(chapters_info):
-            lines.append("[CHAPTER]")
-            lines.append("TIMEBASE=1/1000")
-            lines.append(f"START={chapter['start_ms']}")
-            end = chapter['end_ms'] if 'end_ms' in chapter else (chapters_info[i+1]['start_ms'] if i+1 < len(chapters_info) else chapter['start_ms'] + 1000)
-            lines.append(f"END={end}")
-            lines.append(f"title={chapter['title']}")
-            lines.append("")
-        return "\n".join(lines)
-
-    def _chunk_text(self, text, max_chars=None):
-        if max_chars is None: max_chars = self.chunk_size
-        sentences = re.split(r'(?<=[.?!])\s+', text)
-        chunks = []
-        curr = ""
-        for s in sentences:
-            if len(s) > max_chars:
-                if curr: chunks.append(curr.strip()); curr = ""
-                words = s.split()
-                temp = ""
-                for word in words:
-                    if len(temp) + len(word) + 1 < max_chars: temp += word + " "
-                    else: chunks.append(temp.strip()); temp = word + " "
-                if temp: chunks.append(temp.strip())
-            elif len(curr) + len(s) < max_chars: curr += s + " "
-            else: chunks.append(curr.strip()); curr = s + " "
-        if curr: chunks.append(curr.strip())
-        return chunks
-
-    def _create_m4b_with_chapters(self, chapter_audio_files, chapters_info, output_path, book_title=None):
-        try:
-            concat_file = os.path.join(self.temp_dir, "concat_list.txt")
-            with open(concat_file, 'w', encoding='utf-8') as f:
-                for audio_file in chapter_audio_files:
-                    safe = audio_file.replace('\\', '/').replace("'", "'\\''")
-                    f.write(f"file '{safe}'\n")
-
-            updated_chapters_info = []
-            cumulative_ms = 0
-            for i, (f, c) in enumerate(zip(chapter_audio_files, chapters_info)):
-                dur = len(AudioSegment.from_wav(f))
-                updated_chapters_info.append({'title': c['title'], 'start_ms': cumulative_ms, 'end_ms': cumulative_ms + dur})
-                cumulative_ms += dur
-
-            metadata_file = os.path.join(self.temp_dir, "ffmetadata.txt")
-            with open(metadata_file, 'w', encoding='utf-8') as f:
-                f.write(self._generate_ffmetadata(updated_chapters_info, book_title=book_title))
-
-            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_file, '-i', metadata_file,
-                   '-map_metadata', '1', '-map', '0:a', '-c:a', 'aac', '-b:a', '64k', '-y', output_path]
-            
-            subprocess.run(cmd, capture_output=True, check=True)
-            return output_path
-        except Exception as e:
-            self.log(f"FFMPEG Error: {e}")
-            raise
 
     # --- RESTORED: Helper functions for Manifest Rendering ---
     def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None):
@@ -975,3 +780,51 @@ class AudioEngine:
     
     def clear_converted_files(self):
         self._clear_temp_dir()
+
+    # --- RESTORED HELPER FUNCTION ---
+    def _chunk_text(self, text, max_chars=None):
+        if max_chars is None: max_chars = self.chunk_size
+        sentences = re.split(r'(?<=[.?!])\s+', text)
+        chunks = []
+        curr = ""
+        for s in sentences:
+            if len(s) > max_chars:
+                if curr: chunks.append(curr.strip()); curr = ""
+                words = s.split()
+                temp = ""
+                for word in words:
+                    if len(temp) + len(word) + 1 < max_chars: temp += word + " "
+                    else: chunks.append(temp.strip()); temp = word + " "
+                if temp: chunks.append(temp.strip())
+            elif len(curr) + len(s) < max_chars: curr += s + " "
+            else: chunks.append(curr.strip()); curr = s + " "
+        if curr: chunks.append(curr.strip())
+        return chunks
+
+    def _create_m4b_with_chapters(self, chapter_audio_files, chapters_info, output_path, book_title=None):
+        try:
+            concat_file = os.path.join(self.temp_dir, "concat_list.txt")
+            with open(concat_file, 'w', encoding='utf-8') as f:
+                for audio_file in chapter_audio_files:
+                    safe = audio_file.replace('\\', '/').replace("'", "'\\''")
+                    f.write(f"file '{safe}'\n")
+
+            updated_chapters_info = []
+            cumulative_ms = 0
+            for i, (f, c) in enumerate(zip(chapter_audio_files, chapters_info)):
+                dur = len(AudioSegment.from_wav(f))
+                updated_chapters_info.append({'title': c['title'], 'start_ms': cumulative_ms, 'end_ms': cumulative_ms + dur})
+                cumulative_ms += dur
+
+            metadata_file = os.path.join(self.temp_dir, "ffmetadata.txt")
+            with open(metadata_file, 'w', encoding='utf-8') as f:
+                f.write(self._generate_ffmetadata(updated_chapters_info, book_title=book_title))
+
+            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_file, '-i', metadata_file,
+                   '-map_metadata', '1', '-map', '0:a', '-c:a', 'aac', '-b:a', '64k', '-y', output_path]
+            
+            subprocess.run(cmd, capture_output=True, check=True)
+            return output_path
+        except Exception as e:
+            self.log(f"FFMPEG Error: {e}")
+            raise
