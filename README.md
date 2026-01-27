@@ -6,6 +6,31 @@ GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-
 
 ---
 
+## 🎙️ Audio Samples - Hear It In Action
+
+**Create voices from text descriptions alone** - no audio samples needed!
+
+### 🎬 Atmospheric Sci-Fi
+> *"A deep, gritty male voice. Calm but weary. Cinematic spaceship captain tone."*
+
+🔊 [Listen: Atmospheric Sci-Fi](samples/Atmospheric%20Sci-Fi_audiobook.mp3)
+
+### 🐉 Classic Fantasy
+> *"Elderly British voice. Warm and raspy, like a grandfather telling stories by a fireplace."*
+
+🔊 [Listen: Classic Fantasy](samples/Classic%20Fantasy_audiobook.mp3)
+
+### 🕵️ Noir Detective
+> *"Low, smoky female voice. 1940s film noir style with vocal fry."*
+
+🔊 [Listen: Noir Detective](samples/Noir%20Detective_audiobook.mp3)
+
+**[View All Samples & Descriptions →](samples/)**
+
+These voices were created using **Voice Design** - just describe the voice you want, no cloning needed! VOX-1 also supports **Voice Cloning** to copy any voice from a 10-30 second sample.
+
+---
+
 ## 🚀 Quick Install (Recommended)
 
 ### Step 1: Download Repository
@@ -131,12 +156,27 @@ Get **2-4x less VRAM usage** and **2x faster generation** by installing Flash At
 
 ## 🎯 Features
 
-- 🎙️ **High-Quality TTS** - Qwen3-TTS models (0.6B/1.7B)
-- ⚡ **GPU Accelerated** - 1.8x faster than real-time
-- 📚 **Chapter Support** - Automatic chapter detection
-- 🎵 **Voice Cloning** - Create custom voices
-- 📊 **VRAM Monitoring** - Real-time GPU usage tracking
-- 🔄 **Batch Processing** - Process multiple chunks simultaneously
+### 🎨 Voice Creation (What Makes VOX-1 Special)
+- **🎙️ Voice Design** - Create voices from text descriptions alone
+  - Describe tone, accent, age, style
+  - No audio samples needed
+  - Perfect for unique character voices
+- **🎵 Voice Cloning** - Copy any voice from 10-30 seconds of audio
+  - Clone narrators, actors, or your own voice
+  - Consistent quality across hours of content
+  - Professional audiobook production
+
+### ⚡ Performance & Quality
+- **High-Quality TTS** - Qwen3-TTS state-of-the-art models (0.6B/1.7B)
+- **GPU Accelerated** - Up to 20x faster than real-time with Flash Attention
+- **Batch Processing** - Process 5-64 chunks simultaneously
+- **VRAM Optimization** - Smart batching + Flash Attention support
+
+### 📚 Production Features
+- **Chapter Support** - Automatic EPUB/PDF chapter detection
+- **M4B Export** - Audiobooks with embedded chapter markers
+- **Resume Support** - Pick up where you left off
+- **Real-time Monitoring** - VRAM usage and progress tracking
 
 ---
 
