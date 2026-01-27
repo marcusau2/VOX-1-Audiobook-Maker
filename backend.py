@@ -409,7 +409,6 @@ class AudioEngine:
 
         # --- SMART BATCHING ---
         indexed_chunks = [(i, c) for i, c in enumerate(chunks) if c.strip()]
-        # Sort by length (Longest first) for efficient Flash Attention padding
         indexed_chunks.sort(key=lambda x: len(x[1]), reverse=True)
         
         results_cache = {}
@@ -619,7 +618,6 @@ class AudioEngine:
         text = re.sub(r'[ \t]+', ' ', text)
         return re.sub(r'\n{3,}', '\n\n', text).strip()
 
-    # --- RESTORED: Helper functions for Manifest Rendering ---
     def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None):
         return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event)
 
@@ -632,7 +630,10 @@ class AudioEngine:
         self._ensure_model('render')
         
         book_title = manifest.get("title", "Untitled")
+        author = manifest.get("author", "Unknown") # Get author for filename
         chapters_data = manifest.get("chapters", [])
+        
+        # Clean folder name
         book_output_dir = os.path.join(self.output_dir, "".join(c for c in book_title if c.isalnum() or c in ' -_').strip())
         os.makedirs(book_output_dir, exist_ok=True)
 
@@ -658,7 +659,7 @@ class AudioEngine:
         chapters_info = []
         
         # AUDIT: Cap tokens to prevent loops
-        MAX_TOKENS = 1536
+        MAX_TOKENS = 2048
 
         for chapter_idx, chapter in enumerate(chapters_data):
             if stop_event and stop_event.is_set(): return None
@@ -764,8 +765,21 @@ class AudioEngine:
                 torch.cuda.synchronize()
 
         if chapter_audio_files:
-            m4b_path = os.path.join(book_output_dir, f"{book_title}.m4b")
-            self._create_m4b_with_chapters(chapter_audio_files, chapters_info, m4b_path, book_title=book_title)
+            # FIX: Filename now includes Author
+            clean_title = "".join(c for c in book_title if c.isalnum() or c in ' -_').strip()
+            clean_author = "".join(c for c in author if c.isalnum() or c in ' -_').strip()
+            filename = f"{clean_title} - {clean_author}.m4b" if clean_author else f"{clean_title}.m4b"
+            m4b_path = os.path.join(book_output_dir, filename)
+            
+            self._create_m4b_with_chapters(chapter_audio_files, chapters_info, m4b_path, book_title=book_title, artist=author)
+            
+            # --- NEW CLEANUP: Delete chapter WAVs after success ---
+            self.log("Cleaning up intermediate chapter files...")
+            for wav_path in chapter_audio_files:
+                try:
+                    if os.path.exists(wav_path): os.unlink(wav_path)
+                except: pass
+                
             return m4b_path
         else:
             raise RuntimeError("No audio generated")
@@ -781,7 +795,7 @@ class AudioEngine:
     def clear_converted_files(self):
         self._clear_temp_dir()
 
-    # --- RESTORED HELPER FUNCTION ---
+    # --- RESTORED HELPER FUNCTION 1 ---
     def _chunk_text(self, text, max_chars=None):
         if max_chars is None: max_chars = self.chunk_size
         sentences = re.split(r'(?<=[.?!])\s+', text)
@@ -801,13 +815,15 @@ class AudioEngine:
         if curr: chunks.append(curr.strip())
         return chunks
 
-    def _create_m4b_with_chapters(self, chapter_audio_files, chapters_info, output_path, book_title=None):
+    # --- RESTORED HELPER FUNCTION 2 ---
+    def _create_m4b_with_chapters(self, chapter_audio_files, chapters_info, output_path, book_title=None, artist=None):
         try:
             concat_file = os.path.join(self.temp_dir, "concat_list.txt")
             with open(concat_file, 'w', encoding='utf-8') as f:
                 for audio_file in chapter_audio_files:
-                    safe = audio_file.replace('\\', '/').replace("'", "'\\''")
-                    f.write(f"file '{safe}'\n")
+                    # FIX: Force forward slashes for FFMPEG compatibility on Windows
+                    safe_path = audio_file.replace('\\', '/').replace("'", "'\\''")
+                    f.write(f"file '{safe_path}'\n")
 
             updated_chapters_info = []
             cumulative_ms = 0
@@ -818,13 +834,41 @@ class AudioEngine:
 
             metadata_file = os.path.join(self.temp_dir, "ffmetadata.txt")
             with open(metadata_file, 'w', encoding='utf-8') as f:
-                f.write(self._generate_ffmetadata(updated_chapters_info, book_title=book_title))
+                f.write(self._generate_ffmetadata(updated_chapters_info, book_title=book_title, artist=artist))
 
+            # FIX: Ensure metadata file is used properly with -map_metadata 1
             cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_file, '-i', metadata_file,
                    '-map_metadata', '1', '-map', '0:a', '-c:a', 'aac', '-b:a', '64k', '-y', output_path]
             
-            subprocess.run(cmd, capture_output=True, check=True)
+            # --- UPDATED: Added logging for FFMPEG errors ---
+            process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+            if process.returncode != 0:
+                self.log(f"FFMPEG Error Output:\n{process.stderr}")
+                raise RuntimeError("FFMPEG failed to stitch audiobook")
+                
             return output_path
         except Exception as e:
             self.log(f"FFMPEG Error: {e}")
             raise
+
+    # --- RESTORED HELPER FUNCTION 3 ---
+    def _generate_ffmetadata(self, chapters_info, book_title=None, artist=None):
+        def escape_metadata(value):
+            if not value: return ""
+            # Escape: = ; # \ and newline
+            value = str(value).replace('\\', '\\\\').replace('=', '\\=').replace(';', '\\;').replace('#', '\\#')
+            return value
+
+        lines = [";FFMETADATA1"]
+        if book_title: lines.append(f"title={escape_metadata(book_title)}")
+        if artist: lines.append(f"artist={escape_metadata(artist)}")
+        lines.append("")
+        for i, chapter in enumerate(chapters_info):
+            lines.append("[CHAPTER]")
+            lines.append("TIMEBASE=1/1000")
+            lines.append(f"START={chapter['start_ms']}")
+            end = chapter['end_ms'] if 'end_ms' in chapter else (chapters_info[i+1]['start_ms'] if i+1 < len(chapters_info) else chapter['start_ms'] + 1000)
+            lines.append(f"END={end}")
+            lines.append(f"title={escape_metadata(chapter['title'])}")
+            lines.append("")
+        return "\n".join(lines)
