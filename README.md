@@ -18,7 +18,7 @@ GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-
 *Deep, gritty male voice*
 *Cinematic spaceship captain*
 
-<video src="[https://github.com/user-attachments/files/24873400/Atmospheric.Sci-Fi_audiobook.mp3](https://github.com/user-attachments/assets/acc1b4b6-9fc4-40d7-842f-b0e969566627)" controls="controls"></video>
+<video src="https://github.com/user-attachments/assets/f8829951-6b19-4ccc-8b18-7793289865a7" controls="controls"></video>
 
 </td>
 <td width="33%" align="center">
@@ -27,7 +27,7 @@ GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-
 *Elderly British voice*
 *Grandfather storyteller*
 
-**[▶️ LISTEN](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Classic%20Fantasy_audiobook.mp3)**
+<video src="https://github.com/user-attachments/assets/7a57f766-7c95-4e0b-9705-c0a4fcfb828e" controls="controls"></video>
 
 </td>
 <td width="33%" align="center">
@@ -36,7 +36,7 @@ GPU-accelerated audiobook generator using Qwen3-TTS models. Create professional-
 *Smoky 1940s female voice*
 *Film noir style*
 
-**[▶️ LISTEN](https://github.com/marcusau2/VOX-1-Audiobook-Maker/raw/main/samples/Noir%20Detective_audiobook.mp3)**
+<video src="https://github.com/user-attachments/assets/93b285e4-3b4a-4457-bcc3-856196b6cde4" controls="controls"></video>
 
 </td>
 </tr>
