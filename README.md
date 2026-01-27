@@ -136,9 +136,9 @@ If you downloaded as ZIP:
 
 ## ⚡ Performance Optimization (Optional)
 
-### Flash Attention 2 - Faster & More Efficient
+### Flash Attention 2 - Reduce VRAM Usage
 
-Get **2-4x less VRAM usage** and **2x faster generation** by installing Flash Attention 2:
+Flash Attention 2 is an optimization that can help reduce VRAM usage during generation:
 
 1. **Run the installer:**
    ```
@@ -151,9 +151,10 @@ Get **2-4x less VRAM usage** and **2x faster generation** by installing Flash At
    - Set "Attention Implementation" to **"auto"**
    - Click "Apply Settings"
 
-3. **Test higher batch sizes:**
-   - **12GB GPU:** Try batch 5-10 (vs 2-3 without)
-   - **24GB GPU:** Try batch 20-40 (vs 5-7 without)
+3. **Test incrementally:**
+   - Start with your current batch size
+   - Monitor VRAM in Activity Log
+   - Gradually increase if stable
 
 **Requirements:** NVIDIA RTX 3000/4000 series GPU (Ampere or newer)
 
@@ -185,9 +186,9 @@ Get **2-4x less VRAM usage** and **2x faster generation** by installing Flash At
 
 ### ⚡ Performance & Quality
 - **High-Quality TTS** - Qwen3-TTS state-of-the-art models (0.6B/1.7B)
-- **GPU Accelerated** - Up to 20x faster than real-time with Flash Attention
-- **Batch Processing** - Process 5-64 chunks simultaneously
-- **VRAM Optimization** - Smart batching + Flash Attention support
+- **GPU Accelerated** - CUDA-optimized inference on NVIDIA GPUs
+- **Batch Processing** - Process multiple chunks simultaneously
+- **VRAM Optimization** - Smart batching + optional Flash Attention support
 
 ### 📚 Production Features
 - **Chapter Support** - Automatic EPUB/PDF chapter detection
@@ -221,21 +222,18 @@ Get **2-4x less VRAM usage** and **2x faster generation** by installing Flash At
 
 Adjust in **Advanced Settings** tab:
 
-**Without Flash Attention:**
-| GPU VRAM | Batch Size | Model Size | Speed |
-|----------|------------|------------|-------|
-| 8-10 GB  | 1-2        | 0.6B       | 1.5x  |
-| 12 GB    | 2-3        | 0.6B       | 1.8x  |
-| 24 GB    | 5-7        | 1.7B       | 2.0x  |
+**Recommended Starting Points:**
+| GPU VRAM | Model Size | Starting Batch Size |
+|----------|------------|---------------------|
+| 8-10 GB  | 0.6B       | 2                   |
+| 12 GB    | 0.6B       | 3                   |
+| 16+ GB   | 1.7B       | 3-5                 |
 
-**With Flash Attention 2 (Recommended):**
-| GPU VRAM | Batch Size | Model Size | Speed |
-|----------|------------|------------|-------|
-| 8-10 GB  | 3-5        | 0.6B       | 2-3x  |
-| 12 GB    | 5-10       | 0.6B       | 3-5x  |
-| 24 GB    | 20-40      | 1.7B       | 10-20x |
-
-*Install Flash Attention 2 for significantly better performance - see [Performance Optimization](#-performance-optimization-optional) section above*
+**Tips:**
+- Start with recommended batch size
+- Monitor VRAM usage in Activity Log
+- Increase gradually if VRAM usage is low
+- Install Flash Attention 2 (optional) to potentially reduce VRAM usage - see [Performance Optimization](#-performance-optimization-optional)
 
 ---
 

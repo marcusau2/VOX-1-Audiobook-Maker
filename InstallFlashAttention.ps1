@@ -1,10 +1,10 @@
 # ============================================================================
 # VOX-1 Audiobook Maker - Flash Attention 2 Installation Script
 # ============================================================================
-# This script installs Flash Attention 2 for improved performance:
-# - 2-4x less VRAM usage during generation
-# - 2x faster inference
-# - Enables higher batch sizes (5-20 on 12GB, 20-64 on 24GB)
+# This script installs Flash Attention 2 for optimized performance:
+# - Reduces VRAM usage during generation
+# - May enable higher batch sizes
+# - Can improve inference speed
 # ============================================================================
 
 # Use Continue instead of Stop to prevent crashes on minor Python warnings
@@ -51,11 +51,10 @@ Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "What is Flash Attention 2?" -ForegroundColor Cyan
 Write-Host "- Optimized CUDA kernels for transformer attention"
-Write-Host "- 2-4x less VRAM usage during generation"
-Write-Host "- 2x faster inference speed"
-Write-Host "- Enables much higher batch sizes:"
-Write-Host "  * 12GB GPU: Batch 5-20 (vs 2-3 without)"
-Write-Host "  * 24GB GPU: Batch 20-64 (vs 5-7 without)"
+Write-Host "- Reduces VRAM usage during generation"
+Write-Host "- May enable higher batch sizes"
+Write-Host "- Can improve inference speed"
+Write-Host "- Test incrementally to find optimal settings for your GPU"
 Write-Host ""
 Write-Host "Requirements:" -ForegroundColor Cyan
 Write-Host "- Windows 10/11"
@@ -198,14 +197,15 @@ if ($VerifyResult -match "installed successfully") {
     Write-Host "3. Set 'Attention Implementation' to 'auto' or 'flash_attention_2'"
     Write-Host "4. Click 'Apply Settings'"
     Write-Host "5. Check Activity Log - should show 'Flash Attention 2.7.4 detected'"
-    Write-Host "6. Try higher batch sizes:"
-    Write-Host "   - 12GB GPU: Try batch 5-10"
-    Write-Host "   - 24GB GPU: Try batch 10-20"
+    Write-Host "6. Test incrementally:"
+    Write-Host "   - Start with your current batch size"
+    Write-Host "   - Monitor VRAM in Activity Log"
+    Write-Host "   - Increase gradually if stable"
     Write-Host ""
-    Write-Host "Performance Expectations:" -ForegroundColor Cyan
-    Write-Host "- 2-4x less VRAM usage"
-    Write-Host "- 2x faster generation"
-    Write-Host "- Higher batch sizes possible"
+    Write-Host "What to Expect:" -ForegroundColor Cyan
+    Write-Host "- Reduced VRAM usage during generation"
+    Write-Host "- May enable higher batch sizes"
+    Write-Host "- Performance varies by GPU and settings"
     Write-Host ""
 } else {
     Write-Host ""

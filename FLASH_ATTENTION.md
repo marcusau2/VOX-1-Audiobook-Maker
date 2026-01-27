@@ -2,23 +2,20 @@
 
 ## What is Flash Attention 2?
 
-Flash Attention 2 is an optimized CUDA kernel implementation for transformer attention operations that provides:
+Flash Attention 2 is an optimized CUDA kernel implementation for transformer attention operations that can help:
 
-- **2-4x less VRAM usage** during audio generation
-- **2x faster inference** speed
-- **Higher batch sizes** without running out of memory
+- **Reduce VRAM usage** during audio generation
+- **Potentially enable higher batch sizes** without running out of memory
+- **May improve inference speed**
 
-## Performance Comparison
+## Why Install It?
 
-### Without Flash Attention (Standard)
-- **12GB GPU (RTX 4070 Ti):** Batch 2-3 stable
-- **24GB GPU (RTX 4090):** Batch 5-7 stable
+Flash Attention 2 optimizes memory usage during the attention mechanism in transformer models. This can allow you to:
+- Use higher batch sizes than standard attention
+- Generate audio more efficiently on limited VRAM
+- Experiment with different performance settings
 
-### With Flash Attention 2
-- **12GB GPU (RTX 4070 Ti):** Batch 5-20 possible
-- **24GB GPU (RTX 4090):** Batch 20-64 possible
-
-**Speed improvement:** Batch 20 can be 10x faster than Batch 2!
+**Note:** Performance improvements vary by GPU, model size, and batch configuration. Test incrementally to find what works for your system.
 
 ## Requirements
 
