@@ -140,7 +140,8 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 # ============================================================================
 
 class AudioEngine:
-    def __init__(self, log_callback=print, model_size="1.7B", batch_size=3, chunk_size=500,
+    # REVERTED TO DEFAULTS: You control these via the UI now.
+    def __init__(self, log_callback=print, model_size="1.7B", batch_size=5, chunk_size=500,
                  temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05,
                  attn_implementation="auto"):
         self.log = log_callback
@@ -248,8 +249,20 @@ class AudioEngine:
             self.log(f"Loading RENDER model ({model_id})...")
 
         try:
-            # Explicit bfloat16 to ensure 4090 tensor usage
-            dtype_config = torch.bfloat16
+            # Default to float16 (safe for Pascal/Turing/Older)
+            dtype_config = torch.float16
+            
+            if self.device == "cuda":
+                try:
+                    # Check CUDA capability (Ampere is 8.0+)
+                    major_version = torch.cuda.get_device_capability()[0]
+                    if major_version >= 8:
+                        dtype_config = torch.bfloat16
+                        self.log(f"Detected modern GPU (Arch {major_version}.x) - Using bfloat16")
+                    else:
+                        self.log(f"Detected older GPU (Arch {major_version}.x) - Using float16")
+                except:
+                    self.log("Could not detect architecture, defaulting to float16")
             
             if self.attn_implementation == "auto":
                 try:
@@ -322,8 +335,12 @@ class AudioEngine:
             wavs, sr = self.active_model.generate_voice_design(
                 text=text, language="English", instruct=description, max_new_tokens=2048
             )
-            # FIX: Immediate CPU move
-            wav_cpu = wavs[0].cpu().float().numpy()
+            # FIX: Check if it's already a numpy array (no .cpu() needed) or a Tensor
+            wav_out = wavs[0]
+            if hasattr(wav_out, 'cpu'):
+                wav_cpu = wav_out.cpu().float().numpy()
+            else:
+                wav_cpu = wav_out
             del wavs
         
         sf.write(output_path, wav_cpu, sr)
@@ -339,8 +356,12 @@ class AudioEngine:
             wavs, sr = self.active_model.generate_voice_clone(
                 text=text, language="English", ref_audio=ref_audio_path, ref_text=ref_text, max_new_tokens=2048
             )
-            # FIX: Immediate CPU move
-            wav_cpu = wavs[0].cpu().float().numpy()
+            # FIX: Check if it's already a numpy array (no .cpu() needed) or a Tensor
+            wav_out = wavs[0]
+            if hasattr(wav_out, 'cpu'):
+                wav_cpu = wav_out.cpu().float().numpy()
+            else:
+                wav_cpu = wav_out
             del wavs
 
         sf.write(output_path, wav_cpu, sr)
@@ -405,7 +426,7 @@ class AudioEngine:
                 batch_indices = [item[0] for item in batch_items]
                 batch_texts = [item[1] for item in batch_items]
 
-                # --- FIX: Aggressive Periodic Cleanup (Every 5 batches) ---
+                # --- FIX: Periodic Cleanup (Every 5 batches) ---
                 if i % 5 == 0 and i > 0:
                     gc.collect()
                     if self.device == "cuda": 
@@ -790,6 +811,7 @@ class AudioEngine:
             self.log(f"FFMPEG Error: {e}")
             raise
 
+    # --- RESTORED HELPER FUNCTION ---
     def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None):
         return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event)
 
