@@ -23,8 +23,8 @@ import hashlib
 def smart_import_audio(input_path, log_callback=None):
     """
     Optimizes audio file for voice cloning:
-    - Normalizes volume (DISABLED)
-    - Finds best 5-second segment
+    - Normalizes volume (DISABLED to preserve quality)
+    - Finds best 5-second segment if file is long
     - Strips silence
     - Exports as WAV (Original Sample Rate)
     """
@@ -56,8 +56,7 @@ def smart_import_audio(input_path, log_callback=None):
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, "master_voice_optimized.wav")
 
-            # REMOVED ["-ar", "16000"] to prevent aliasing/hiss. 
-            # We now keep original sample rate.
+            # Keep original sample rate
             audio.export(output_path, format="wav") 
             
             duration_msg = f"{len(audio)/1000:.1f}s"
@@ -72,8 +71,8 @@ def smart_import_audio(input_path, log_callback=None):
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "master_voice_optimized.wav")
 
-        # REMOVED ["-ar", "16000"] to prevent aliasing/hiss.
-        audio.export(output_path, format="wav")
+        # FIX APPLIED HERE: Export 'best_segment', NOT 'audio'
+        best_segment.export(output_path, format="wav")
 
         start_min = int(segment_start // 60)
         start_sec = int(segment_start % 60)
