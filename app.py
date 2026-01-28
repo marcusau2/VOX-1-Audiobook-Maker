@@ -556,7 +556,8 @@ class Vox1App(ctk.CTk):
         chunk_label.grid(row=0, column=0, sticky="w", pady=5)
 
         self.chunk_size_var = ctk.IntVar(value=self.settings.get("chunk_size", 500))
-        self.chunk_slider = ctk.CTkSlider(chunk_frame, from_=100, to=1000, number_of_steps=18,
+        # UPDATED: Increased limit to 5000 for "Monolith Strategy"
+        self.chunk_slider = ctk.CTkSlider(chunk_frame, from_=100, to=5000, number_of_steps=98,
                                          variable=self.chunk_size_var, command=self._update_chunk_label)
         self.chunk_slider.grid(row=1, column=0, sticky="ew", pady=5)
 
@@ -569,7 +570,7 @@ class Vox1App(ctk.CTk):
                  "   • Larger = Fewer total chunks, faster overall processing\n" +
                  "   • Smaller = More chunks, lower VRAM per chunk\n" +
                  "   • Default (500) works well for most books and GPUs\n" +
-                 "   • Range: 100-1000 characters",
+                 "   • Range: 100-5000 characters",
             font=("Roboto", 11), justify="left", text_color="gray")
         chunk_info.grid(row=3, column=0, sticky="w", pady=5)
 
@@ -1045,7 +1046,8 @@ class Vox1App(ctk.CTk):
                             self.book_metadata["manifest"],
                             self.master_voice_path,
                             progress_callback=progress,
-                            stop_event=self.stop_event
+                            stop_event=self.stop_event,
+                            chunk_size=int(self.chunk_size_var.get()) # UPDATED: Pass manual chunk size
                         )
                     else:
                         # JSON file - pass file path
@@ -1053,10 +1055,12 @@ class Vox1App(ctk.CTk):
                             self.book_path,
                             self.master_voice_path,
                             progress_callback=progress,
-                            stop_event=self.stop_event
+                            stop_event=self.stop_event,
+                            chunk_size=int(self.chunk_size_var.get()) # UPDATED: Pass manual chunk size
                         )
                 else:
                     self.log("Using standard TXT rendering mode (single MP3)")
+                    # NOTE: render_book (txt) doesn't support the override arg yet, relies on engine init
                     out = self.engine.render_book(
                         self.book_path,
                         self.master_voice_path,
