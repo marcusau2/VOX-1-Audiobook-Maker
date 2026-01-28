@@ -71,7 +71,7 @@ def smart_import_audio(input_path, log_callback=None):
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "master_voice_optimized.wav")
 
-        # FIX APPLIED HERE: Export 'best_segment', NOT 'audio'
+        # Export 'best_segment' (the 5s clip), NOT 'audio'
         best_segment.export(output_path, format="wav")
 
         start_min = int(segment_start // 60)
@@ -491,6 +491,10 @@ class AudioEngine:
                     continue
 
         self.log("Step 3/3: Stitching audio in correct order...")
+        
+        # --- NEW STITCHING LOGIC WITH 250ms BREATH GAP & MICRO-FADES ---
+        silence_gap = AudioSegment.silent(duration=250) # 250ms gap
+        
         audio_segments = []
         for i in range(total_chunks):
             if i in results_cache:
@@ -499,8 +503,14 @@ class AudioEngine:
                 self.log(f"Warning: Chunk {i} failed to render.")
 
         if audio_segments:
-            final_audio = audio_segments[0]
-            for seg in audio_segments[1:]: final_audio += seg
+            # Process first chunk
+            final_audio = audio_segments[0].fade_in(50).fade_out(50)
+            
+            # Process subsequent chunks
+            for seg in audio_segments[1:]: 
+                # Apply micro-fades to smooth edges
+                processed_seg = seg.fade_in(50).fade_out(50)
+                final_audio += silence_gap + processed_seg 
 
             out_path = os.path.join(self.output_dir, f"{original_book_name}_audiobook.mp3")
             final_audio.export(out_path, format="mp3")
@@ -746,8 +756,16 @@ class AudioEngine:
                 if i in results_cache: audio_segments.append(results_cache[i])
 
             if audio_segments:
-                final = audio_segments[0]
-                for s in audio_segments[1:]: final += s
+                # --- NEW STITCHING LOGIC WITH 250ms BREATH GAP & MICRO-FADES (MANIFEST MODE) ---
+                silence_gap = AudioSegment.silent(duration=250) # 250ms gap
+                
+                # Process first chunk
+                final = audio_segments[0].fade_in(50).fade_out(50)
+                
+                # Process subsequent chunks
+                for s in audio_segments[1:]: 
+                    processed_seg = s.fade_in(50).fade_out(50)
+                    final += silence_gap + processed_seg
                 
                 fname = f"{chapter.get('id', chapter_idx+1):02d}_{label}".replace(" ", "_") + ".wav"
                 out_path = os.path.join(book_output_dir, fname)
@@ -775,12 +793,15 @@ class AudioEngine:
             
             self._create_m4b_with_chapters(chapter_audio_files, chapters_info, m4b_path, book_title=book_title, artist=author)
             
-            # --- NEW CLEANUP: Delete chapter WAVs after success ---
+            # --- AGGRESSIVE CLEANUP: Wipes ALL .wav files in output folder ---
             self.log("Cleaning up intermediate chapter files...")
-            for wav_path in chapter_audio_files:
-                try:
-                    if os.path.exists(wav_path): os.unlink(wav_path)
-                except: pass
+            for filename in os.listdir(book_output_dir):
+                if filename.endswith(".wav") or (not filename.endswith(".m4b") and not filename.endswith(".json")):
+                    try:
+                        full_path = os.path.join(book_output_dir, filename)
+                        if os.path.isfile(full_path):
+                            os.unlink(full_path)
+                    except: pass
                 
             return m4b_path
         else:
