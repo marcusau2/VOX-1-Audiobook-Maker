@@ -508,7 +508,6 @@ class AudioEngine:
             
             # Process subsequent chunks
             for seg in audio_segments[1:]: 
-                # Apply micro-fades to smooth edges
                 processed_seg = seg.fade_in(50).fade_out(50)
                 final_audio += silence_gap + processed_seg 
 
@@ -630,14 +629,14 @@ class AudioEngine:
         text = re.sub(r'[ \t]+', ' ', text)
         return re.sub(r'\n{3,}', '\n\n', text).strip()
 
-    def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None):
-        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event)
+    def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
+        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event, chunk_size=chunk_size)
 
-    def render_from_manifest(self, json_path, master_voice_path, progress_callback=None, stop_event=None):
+    def render_from_manifest(self, json_path, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
         with open(json_path, 'r', encoding='utf-8') as f: manifest = json.load(f)
-        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event)
+        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event, chunk_size=chunk_size)
 
-    def _render_from_manifest_data(self, manifest, master_voice_path, progress_callback=None, stop_event=None):
+    def _render_from_manifest_data(self, manifest, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
         self._unload_active_model()
         self._ensure_model('render')
         
@@ -681,7 +680,9 @@ class AudioEngine:
             style = chapter.get("style_prompt", "")
             self.log(f"Rendering: {label}")
 
-            chunks = self._chunk_text(text)
+            # USE DYNAMIC CHUNK SIZE IF PROVIDED
+            use_chunk_size = chunk_size if chunk_size is not None else self.chunk_size
+            chunks = self._chunk_text(text, max_chars=use_chunk_size)
             
             # Smart Batching
             indexed_chunks = [(i, (f"{style}\n\n{c}" if style else c)) for i, c in enumerate(chunks) if c.strip()]
