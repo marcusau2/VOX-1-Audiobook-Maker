@@ -145,7 +145,6 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 # ============================================================================
 
 class AudioEngine:
-    # Defaults: Batch Size 5 (Safe), Temp 0.7 (Creative)
     def __init__(self, log_callback=print, model_size="1.7B", batch_size=5, chunk_size=500,
                  temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05,
                  attn_implementation="auto"):
@@ -186,11 +185,19 @@ class AudioEngine:
 
         self._setup_ffmpeg()
         
-        self.design_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"
-        self.clone_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-        self.render_model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
-
-        self.log("Config: Voice Cloning = 1.7B, Book Rendering = 0.6B")
+        # --- FIXED MODEL SWITCHING LOGIC ---
+        # Voice Design always uses high quality
+        self.design_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign" 
+        
+        # Switch Render/Clone model based on UI selection
+        if "1.7B" in str(self.model_size):
+            self.clone_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+            self.render_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+            self.log("Config: Using 1.7B Model for Cloning & Rendering")
+        else:
+            self.clone_model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
+            self.render_model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
+            self.log("Config: Using 0.6B Model (Fastest) for Cloning & Rendering")
 
         self.active_model_type = None 
         self.active_model = None
