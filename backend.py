@@ -17,6 +17,51 @@ import json
 import hashlib
 
 # ============================================================================
+# PERMANENT FIX: Windows "Run as Admin" Bypass for AI Models
+# ============================================================================
+# This forces the app to COPY model files instead of linking them if the user
+# does not have the "Create Symbolic Links" privilege (WinError 1314).
+if os.name == 'nt':
+    try:
+        # 1. Test if we can create a real symlink
+        test_src = "symlink_test_src"
+        test_dst = "symlink_test_dst"
+        with open(test_src, 'w') as f: f.write("test")
+        try:
+            os.symlink(test_src, test_dst)
+            # If successful, clean up and do nothing (User has Admin/Dev Mode)
+            os.remove(test_src)
+            os.remove(test_dst)
+        except OSError as e:
+            # 2. If we get the privilege error, enable the "Copy Mode" patch
+            if getattr(e, 'winerror', 0) == 1314:
+                print("Notice: User lacks Symlink privilege. Enabling 'Copy Mode' for models.")
+                
+                # Monkey-patch os.symlink to perform a copy instead
+                def symlink_copy(src, dst, target_is_directory=False, dir_fd=None):
+                    try:
+                        if os.path.isdir(src):
+                            shutil.copytree(src, dst)
+                        else:
+                            shutil.copy2(src, dst)
+                    except FileExistsError:
+                        pass # Target already exists, we are good
+                    except Exception as copy_err:
+                        print(f"Copy Mode Error: {copy_err}")
+                        raise
+
+                os.symlink = symlink_copy
+            
+            # Clean up the test source file if the link failed
+            if os.path.exists(test_src): os.remove(test_src)
+
+    except Exception as e:
+        print(f"Symlink Check Failed: {e}")
+
+# ============================================================================
+# END FIX
+# ============================================================================
+
 # SMART IMPORT FEATURE
 # ============================================================================
 
@@ -775,7 +820,9 @@ class AudioEngine:
                     processed_seg = s.fade_in(50).fade_out(50)
                     final += silence_gap + processed_seg
                 
-                fname = f"{chapter.get('id', chapter_idx+1):02d}_{label}".replace(" ", "_") + ".wav"
+                # --- FIX: Sanitize Filename to remove illegal chars (: ? " < > | *) ---
+                safe_label = "".join(c for c in label if c.isalnum() or c in ' -_').strip()
+                fname = f"{chapter.get('id', chapter_idx+1):02d}_{safe_label}".replace(" ", "_") + ".wav"
                 out_path = os.path.join(book_output_dir, fname)
                 final.export(out_path, format="wav")
                 chapter_audio_files.append(out_path)
