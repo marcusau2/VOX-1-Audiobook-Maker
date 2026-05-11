@@ -7,7 +7,7 @@ import sys
 import os
 
 def check_mark(passed):
-    return "✓" if passed else "✗"
+    return "[OK]" if passed else "[FAIL]"
 
 def check_status(passed):
     return "PASS" if passed else "FAIL"
@@ -43,16 +43,16 @@ try:
     
     # Check CUDA
     cuda_available = torch.cuda.is_available()
-    print(f"      ├─ CUDA Available: {check_mark(cuda_available)} {check_status(cuda_available)}")
+    print(f"      - CUDA Available: {check_mark(cuda_available)} {check_status(cuda_available)}")
     
     if cuda_available:
-        print(f"      ├─ CUDA Version: {torch.version.cuda}")
-        print(f"      ├─ GPU: {torch.cuda.get_device_name(0)}")
+        print(f"      - CUDA Version: {torch.version.cuda}")
+        print(f"      - GPU: {torch.cuda.get_device_name(0)}")
         
         # Check PyTorch version for CUDA graphs
         major, minor = map(int, torch.__version__.split('.')[:2])
         cuda_graphs_supported = major >= 2 and minor >= 5
-        print(f"      └─ CUDA Graphs Support: {check_mark(cuda_graphs_supported)} {check_status(cuda_graphs_supported)}")
+        print(f"      - CUDA Graphs Support: {check_mark(cuda_graphs_supported)} {check_status(cuda_graphs_supported)}")
         
 except ImportError:
     print(f"{check_mark(False)} {check_status(False)} (Not installed)")
@@ -84,7 +84,7 @@ print(f"[5/6] Backend Module... ", end="")
 try:
     from backend import AudioEngine, FASTER_QWEN_AVAILABLE
     print(f"{check_mark(True)} {check_status(True)}")
-    print(f"      └─ FasterQwen Available: {check_mark(FASTER_QWEN_AVAILABLE)} {check_status(FASTER_QWEN_AVAILABLE)}")
+    print(f"      - FasterQwen Available: {check_mark(FASTER_QWEN_AVAILABLE)} {check_status(FASTER_QWEN_AVAILABLE)}")
 except Exception as e:
     print(f"{check_mark(False)} {check_status(False)} ({e})")
     all_passed = False
@@ -93,25 +93,36 @@ except Exception as e:
 print(f"[6/6] FFmpeg... ", end="")
 import subprocess
 try:
+    # Check system ffmpeg first
     result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
     if result.returncode == 0:
-        print(f"{check_mark(True)} {check_status(True)}")
+        print(f"{check_mark(True)} {check_status(True)} (System)")
     else:
-        print(f"{check_mark(False)} {check_status(False)} (Not found)")
-        all_passed = False
+        # Check bundled ffmpeg
+        bundled_ffmpeg = os.path.join(os.path.dirname(__file__), 'ffmpeg_bundle', 'ffmpeg.exe')
+        if os.path.exists(bundled_ffmpeg):
+            print(f"{check_mark(True)} {check_status(True)} (Bundled)")
+        else:
+            print(f"{check_mark(False)} {check_status(False)} (Not found)")
+            all_passed = False
 except Exception as e:
-    print(f"{check_mark(False)} {check_status(False)} ({e})")
-    all_passed = False
+    # Check bundled ffmpeg as fallback
+    bundled_ffmpeg = os.path.join(os.path.dirname(__file__), 'ffmpeg_bundle', 'ffmpeg.exe')
+    if os.path.exists(bundled_ffmpeg):
+        print(f"{check_mark(True)} {check_status(True)} (Bundled)")
+    else:
+        print(f"{check_mark(False)} {check_status(False)} ({e})")
+        all_passed = False
 
 # Summary
 print()
 print("=" * 60)
 if all_passed:
-    print("✓ All checks passed! Installation is complete.")
+    print("[OK] All checks passed! Installation is complete.")
     print()
     print("You can now run the app with: RUN-VOX-1.bat")
 else:
-    print("✗ Some checks failed. Please review the output above.")
+    print("[FAIL] Some checks failed. Please review the output above.")
     print()
     print("Troubleshooting:")
     print("  - Run the installer again: Install-VOX-1.bat")
