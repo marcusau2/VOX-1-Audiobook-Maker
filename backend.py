@@ -3,7 +3,13 @@ import sys
 import torch
 import soundfile as sf
 import whisper
-from qwen_tts import Qwen3TTSModel
+try:
+    from faster_qwen3_tts import FasterQwen3TTS
+    FASTER_QWEN_AVAILABLE = True
+except ImportError:
+    FASTER_QWEN_AVAILABLE = False
+    from qwen_tts import Qwen3TTSModel
+    print("Warning: faster-qwen3-tts not installed, using original Qwen3TTS")
 from pydub import AudioSegment
 import numpy as np
 import re
@@ -184,6 +190,25 @@ class AudioEngine:
         self.log(f"Models will be cached to: {self.models_dir}")
 
         self._setup_ffmpeg()
+
+        # Check PyTorch version for CUDA graphs compatibility
+        try:
+            torch_version = torch.__version__
+            major, minor = map(int, torch_version.split('.')[:2])
+            
+            if major < 2 or (major == 2 and minor < 5):
+                self.log(f"PyTorch {torch_version} detected. CUDA graphs require PyTorch 2.5.1+")
+                self.log("Using original Qwen3TTS (upgrade PyTorch for 5-10x speedup)")
+                FASTER_QWEN_AVAILABLE = False
+            else:
+                self.log(f"PyTorch {torch_version} detected (CUDA graphs compatible)")
+        except Exception as e:
+            self.log(f"Could not check PyTorch version: {e}")
+            FASTER_QWEN_AVAILABLE = False
+        
+        # Use FasterQwen3TTS if available
+        self.use_faster_qwen = FASTER_QWEN_AVAILABLE
+        self.faster_qwen_model = None  # Will be loaded per model type
         
         # --- FIXED MODEL SWITCHING LOGIC ---
         # Voice Design always uses high quality
@@ -275,43 +300,58 @@ class AudioEngine:
                 except:
                     self.log("Could not detect architecture, defaulting to float16")
             
-            if self.attn_implementation == "auto":
-                try:
-                    import flash_attn
-                    self.log(f"Flash Attention {flash_attn.__version__} detected")
+            # Load with FasterQwen3TTS if available
+            if self.use_faster_qwen:
+                self.log("Using FasterQwen3TTS (CUDA graphs enabled)")
+                self.active_model = FasterQwen3TTS.from_pretrained(
+                    model_id,
+                    device=self.device,
+                    dtype=dtype_config,
+                    attn_implementation="sdpa",  # FasterQwen3TTS uses sdpa by default
+                    max_seq_len=2048
+                )
+                # Warm up CUDA graphs with short sequence
+                self.log("Warming up CUDA graphs...")
+                self._warmup_cuda_graphs()
+            else:
+                # Fallback to original Qwen3TTSModel
+                if self.attn_implementation == "auto":
+                    try:
+                        import flash_attn
+                        self.log(f"Flash Attention {flash_attn.__version__} detected")
+                        self.active_model = Qwen3TTSModel.from_pretrained(
+                            model_id, device_map=self.device, dtype=dtype_config,
+                            attn_implementation='flash_attention_2'
+                        )
+                        self.log("✅ Flash Attention 2 enabled successfully")
+                    except ImportError:
+                        self.log("Flash Attention not installed - using default")
+                        self.active_model = Qwen3TTSModel.from_pretrained(
+                            model_id, device_map=self.device, dtype=dtype_config
+                        )
+                    except Exception as e:
+                        self.log(f"Flash Attention failed ({str(e)[:50]}) - using default")
+                        self.active_model = Qwen3TTSModel.from_pretrained(
+                            model_id, device_map=self.device, dtype=dtype_config
+                        )
+                elif self.attn_implementation == "flash_attention_2":
+                    self.log(f"Forcing Flash Attention 2")
                     self.active_model = Qwen3TTSModel.from_pretrained(
                         model_id, device_map=self.device, dtype=dtype_config,
                         attn_implementation='flash_attention_2'
                     )
-                    self.log("✅ Flash Attention 2 enabled successfully")
-                except ImportError:
-                    self.log("Flash Attention not installed - using default")
+                    self.log("✅ Flash Attention 2 enabled")
+                elif self.attn_implementation in ["sdpa", "eager"]:
+                    self.log(f"Using attention method: {self.attn_implementation}")
+                    self.active_model = Qwen3TTSModel.from_pretrained(
+                        model_id, device_map=self.device, dtype=dtype_config,
+                        attn_implementation=self.attn_implementation
+                    )
+                else:
+                    self.log("Using default attention implementation")
                     self.active_model = Qwen3TTSModel.from_pretrained(
                         model_id, device_map=self.device, dtype=dtype_config
                     )
-                except Exception as e:
-                    self.log(f"Flash Attention failed ({str(e)[:50]}) - using default")
-                    self.active_model = Qwen3TTSModel.from_pretrained(
-                        model_id, device_map=self.device, dtype=dtype_config
-                    )
-            elif self.attn_implementation == "flash_attention_2":
-                self.log(f"Forcing Flash Attention 2")
-                self.active_model = Qwen3TTSModel.from_pretrained(
-                    model_id, device_map=self.device, dtype=dtype_config,
-                    attn_implementation='flash_attention_2'
-                )
-                self.log("✅ Flash Attention 2 enabled")
-            elif self.attn_implementation in ["sdpa", "eager"]:
-                self.log(f"Using attention method: {self.attn_implementation}")
-                self.active_model = Qwen3TTSModel.from_pretrained(
-                    model_id, device_map=self.device, dtype=dtype_config,
-                    attn_implementation=self.attn_implementation
-                )
-            else:
-                self.log("Using default attention implementation")
-                self.active_model = Qwen3TTSModel.from_pretrained(
-                    model_id, device_map=self.device, dtype=dtype_config
-                )
             
             self.active_model_type = model_type
             self.log(f"Model loaded successfully.")
@@ -321,6 +361,47 @@ class AudioEngine:
             self.log(f"Error loading {model_id}: {e}")
             self.log(traceback.format_exc())
             raise
+
+    def _warmup_cuda_graphs(self):
+        """Warm up CUDA graphs with a short sequence."""
+        if not self.use_faster_qwen or self.active_model is None:
+            return
+        
+        try:
+            # Short warmup text to capture CUDA graphs
+            warmup_text = "Hello, this is a warmup."
+            warmup_ref_text = "This is a warmup sequence for CUDA graphs."
+            
+            # Create a dummy reference audio if needed
+            import numpy as np
+            import soundfile as sf
+            import os
+            
+            # Generate 1 second of silence as warmup audio
+            sample_rate = 24000
+            silence = np.zeros(sample_rate, dtype=np.float32)
+            warmup_audio_path = os.path.join(self.temp_dir, "warmup_ref.wav")
+            sf.write(warmup_audio_path, silence, sample_rate)
+            
+            # Run a short generation to capture CUDA graphs
+            self.log("Capturing CUDA graphs (this may take a moment)...")
+            audio_list, sr = self.active_model.generate_voice_clone(
+                text=warmup_text,
+                language="English",
+                ref_audio=warmup_audio_path,
+                ref_text=warmup_ref_text,
+                max_new_tokens=50,
+            )
+            
+            # Clean up warmup file
+            if os.path.exists(warmup_audio_path):
+                os.remove(warmup_audio_path)
+            
+            self.log("CUDA graphs captured and ready")
+            
+        except Exception as e:
+            self.log(f"CUDA graph warmup failed: {e}")
+            self.log("Continuing without warmup (first generation will be slower)")
 
     def _log_vram(self, stage):
         if self.device == "cuda":
@@ -341,18 +422,30 @@ class AudioEngine:
         self._ensure_model('design')
         output_path = os.path.join(self.output_dir, output_filename)
         self.log(f"Generating Voice Design...")
-        with torch.inference_mode():
-            # Cap tokens at 2048 to prevent loops, enough for previews
-            wavs, sr = self.active_model.generate_voice_design(
-                text=text, language="English", instruct=description, max_new_tokens=2048
+        
+        if self.use_faster_qwen:
+            # FasterQwen3TTS API
+            audio_list, sr = self.active_model.generate_voice_design(
+                text=text,
+                language="English",
+                instruct=description,
+                max_new_tokens=2048
             )
-            # SAFE CPU MOVE: Check if it's already a numpy array
-            wav_out = wavs[0]
-            if hasattr(wav_out, 'cpu'):
-                wav_cpu = wav_out.cpu().float().numpy()
-            else:
-                wav_cpu = wav_out
-            del wavs
+            # Convert list of audio chunks to single array
+            wav_out = np.concatenate(audio_list) if isinstance(audio_list, list) else audio_list
+        else:
+            # Original Qwen3TTS API
+            with torch.inference_mode():
+                wavs, sr = self.active_model.generate_voice_design(
+                    text=text, language="English", instruct=description, max_new_tokens=2048
+                )
+                wav_out = wavs[0]
+        
+        # Convert to CPU numpy array
+        if hasattr(wav_out, 'cpu'):
+            wav_cpu = wav_out.cpu().float().numpy()
+        else:
+            wav_cpu = wav_out
         
         sf.write(output_path, wav_cpu, sr)
         return output_path
@@ -362,19 +455,31 @@ class AudioEngine:
         output_path = os.path.join(self.output_dir, output_filename)
         ref_text = self._transcribe_audio(ref_audio_path)
         self.log(f"Cloning voice...")
-        with torch.inference_mode():
-            # Cap tokens at 2048
-            wavs, sr = self.active_model.generate_voice_clone(
-                text=text, language="English", ref_audio=ref_audio_path, ref_text=ref_text, max_new_tokens=2048
+        
+        if self.use_faster_qwen:
+            # FasterQwen3TTS API
+            audio_list, sr = self.active_model.generate_voice_clone(
+                text=text,
+                language="English",
+                ref_audio=ref_audio_path,
+                ref_text=ref_text,
+                max_new_tokens=2048
             )
-            # SAFE CPU MOVE
-            wav_out = wavs[0]
-            if hasattr(wav_out, 'cpu'):
-                wav_cpu = wav_out.cpu().float().numpy()
-            else:
-                wav_cpu = wav_out
-            del wavs
-
+            wav_out = np.concatenate(audio_list) if isinstance(audio_list, list) else audio_list
+        else:
+            # Original Qwen3TTS API
+            with torch.inference_mode():
+                wavs, sr = self.active_model.generate_voice_clone(
+                    text=text, language="English", ref_audio=ref_audio_path, ref_text=ref_text, max_new_tokens=2048
+                )
+                wav_out = wavs[0]
+        
+        # Convert to CPU numpy array
+        if hasattr(wav_out, 'cpu'):
+            wav_cpu = wav_out.cpu().float().numpy()
+        else:
+            wav_cpu = wav_out
+        
         sf.write(output_path, wav_cpu, sr)
         return output_path
 
@@ -447,22 +552,56 @@ class AudioEngine:
                     batch_start = time.time()
                     
                     if voice_prompt is not None:
-                        wavs, sr = self.active_model.generate_voice_clone(
-                            text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                            max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
-                            repetition_penalty=self.repetition_penalty, non_streaming_mode=True
-                        )
+                        if self.use_faster_qwen:
+                            # FasterQwen3TTS API
+                            audio_list, sr = self.active_model.generate_voice_clone(
+                                text=batch_texts,
+                                language="English",
+                                voice_clone_prompt=voice_prompt,
+                                max_new_tokens=2048,
+                                temperature=self.temperature,
+                                top_p=self.top_p,
+                                repetition_penalty=self.repetition_penalty,
+                            )
+                            # Concatenate audio chunks if list
+                            wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
+                        else:
+                            # Original Qwen3TTS API
+                            wavs, sr = self.active_model.generate_voice_clone(
+                                text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
+                                max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
+                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True
+                            )
                     else:
-                        wavs, sr = self.active_model.generate_voice_clone(
-                            text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                            max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
-                            repetition_penalty=self.repetition_penalty, non_streaming_mode=True
-                        )
+                        if self.use_faster_qwen:
+                            # FasterQwen3TTS API
+                            audio_list, sr = self.active_model.generate_voice_clone(
+                                text=batch_texts,
+                                language="English",
+                                ref_audio=master_voice_path,
+                                ref_text=ref_text,
+                                max_new_tokens=2048,
+                                temperature=self.temperature,
+                                top_p=self.top_p,
+                                repetition_penalty=self.repetition_penalty,
+                            )
+                            wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
+                        else:
+                            # Original Qwen3TTS API
+                            wavs, sr = self.active_model.generate_voice_clone(
+                                text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
+                                max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
+                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True
+                            )
 
                     # --- FIX: Move to CPU *immediately* inside loop ---
                     wavs_cpu = []
                     for w in wavs:
-                        if hasattr(w, "cpu"):
+                        if isinstance(w, np.ndarray):
+                            # Already numpy array (FasterQwen3TTS)
+                            wavs_cpu.append(w)
+                        elif hasattr(w, "cpu"):
+                            # Torch tensor (original Qwen3TTS)
                             wavs_cpu.append(w.cpu().float().numpy())
                         else:
                             wavs_cpu.append(w)
@@ -716,20 +855,53 @@ class AudioEngine:
                     try:
                         batch_start = time.time()
                         if voice_prompt:
-                            wavs, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
-                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
+                            if self.use_faster_qwen:
+                                # FasterQwen3TTS API
+                                audio_list, sr = self.active_model.generate_voice_clone(
+                                    text=batch_texts,
+                                    language="English",
+                                    voice_clone_prompt=voice_prompt,
+                                    max_new_tokens=MAX_TOKENS,
+                                    temperature=self.temperature,
+                                    top_p=self.top_p,
+                                    repetition_penalty=self.repetition_penalty,
+                                )
+                                wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
+                            else:
+                                # Original Qwen3TTS API
+                                wavs, sr = self.active_model.generate_voice_clone(
+                                    text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
+                                    max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
+                                    repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
                         else:
-                            wavs, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                                max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
-                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
+                            if self.use_faster_qwen:
+                                # FasterQwen3TTS API
+                                audio_list, sr = self.active_model.generate_voice_clone(
+                                    text=batch_texts,
+                                    language="English",
+                                    ref_audio=master_voice_path,
+                                    ref_text=ref_text,
+                                    max_new_tokens=MAX_TOKENS,
+                                    temperature=self.temperature,
+                                    top_p=self.top_p,
+                                    repetition_penalty=self.repetition_penalty,
+                                )
+                                wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
+                            else:
+                                # Original Qwen3TTS API
+                                wavs, sr = self.active_model.generate_voice_clone(
+                                    text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
+                                    max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
+                                    repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
                         
                         # --- FIX: Move to CPU *immediately* ---
                         wavs_cpu = []
                         for w in wavs:
-                            if hasattr(w, "cpu"):
+                            if isinstance(w, np.ndarray):
+                                # Already numpy array (FasterQwen3TTS)
+                                wavs_cpu.append(w)
+                            elif hasattr(w, "cpu"):
+                                # Torch tensor (original Qwen3TTS)
                                 wavs_cpu.append(w.cpu().float().numpy())
                             else:
                                 wavs_cpu.append(w)
