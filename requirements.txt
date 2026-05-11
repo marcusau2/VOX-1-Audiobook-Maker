@@ -1,6 +1,6 @@
 customtkinter
 qwen-tts
-faster-qwen3-tts>=0.2.6
+faster-qwen3-tts>=0.2.6  # by Andres Marafioti: https://github.com/andimarafioti/faster-qwen3-tts
 # Force CUDA version for torch (CUDA 12.8 - matches system CUDA)
 # PyTorch 2.7.1 for flash-attn compatibility
 # Use --extra-index-url to add PyTorch CUDA repo alongside PyPI

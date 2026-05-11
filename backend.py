@@ -3,6 +3,7 @@ import sys
 import torch
 import soundfile as sf
 import whisper
+# FasterQwen3TTS by Andres Marafioti: https://github.com/andimarafioti/faster-qwen3-tts
 try:
     from faster_qwen3_tts import FasterQwen3TTS
     FASTER_QWEN_AVAILABLE = True
