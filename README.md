@@ -312,7 +312,6 @@ See [MANUAL_INSTALL.md](MANUAL_INSTALL.md) for detailed instructions.
 ## 📚 Documentation
 
 - **README.md** - This file (quick start)
-- **FLASH_ATTENTION.md** - Performance optimization guide
 - **MANUAL_INSTALL.md** - Advanced installation guide
 - **booksmith_module/README.md** - Text processing details
 
