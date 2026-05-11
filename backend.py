@@ -192,6 +192,7 @@ class AudioEngine:
         self._setup_ffmpeg()
 
         # Check PyTorch version for CUDA graphs compatibility
+        pytorch_ok = True
         try:
             torch_version = torch.__version__
             major, minor = map(int, torch_version.split('.')[:2])
@@ -199,15 +200,15 @@ class AudioEngine:
             if major < 2 or (major == 2 and minor < 5):
                 self.log(f"PyTorch {torch_version} detected. CUDA graphs require PyTorch 2.5.1+")
                 self.log("Using original Qwen3TTS (upgrade PyTorch for 5-10x speedup)")
-                FASTER_QWEN_AVAILABLE = False
+                pytorch_ok = False
             else:
                 self.log(f"PyTorch {torch_version} detected (CUDA graphs compatible)")
         except Exception as e:
             self.log(f"Could not check PyTorch version: {e}")
-            FASTER_QWEN_AVAILABLE = False
+            pytorch_ok = False
         
         # Use FasterQwen3TTS if available
-        self.use_faster_qwen = FASTER_QWEN_AVAILABLE
+        self.use_faster_qwen = FASTER_QWEN_AVAILABLE and pytorch_ok
         self.faster_qwen_model = None  # Will be loaded per model type
         
         # --- FIXED MODEL SWITCHING LOGIC ---
@@ -370,32 +371,67 @@ class AudioEngine:
         try:
             # Short warmup text to capture CUDA graphs
             warmup_text = "Hello, this is a warmup."
-            warmup_ref_text = "This is a warmup sequence for CUDA graphs."
-            
-            # Create a dummy reference audio if needed
-            import numpy as np
-            import soundfile as sf
-            import os
-            
-            # Generate 1 second of silence as warmup audio
-            sample_rate = 24000
-            silence = np.zeros(sample_rate, dtype=np.float32)
-            warmup_audio_path = os.path.join(self.temp_dir, "warmup_ref.wav")
-            sf.write(warmup_audio_path, silence, sample_rate)
             
             # Run a short generation to capture CUDA graphs
             self.log("Capturing CUDA graphs (this may take a moment)...")
-            audio_list, sr = self.active_model.generate_voice_clone(
-                text=warmup_text,
-                language="English",
-                ref_audio=warmup_audio_path,
-                ref_text=warmup_ref_text,
-                max_new_tokens=50,
-            )
             
-            # Clean up warmup file
-            if os.path.exists(warmup_audio_path):
-                os.remove(warmup_audio_path)
+            # Check model type for appropriate warmup
+            if self.active_model_type == 'design':
+                # Voice design warmup
+                audio_list, sr = self.active_model.generate_voice_design(
+                    text=warmup_text,
+                    instruct="Warmup",
+                    language="English",
+                    non_streaming_mode=True,
+                    max_new_tokens=50,
+                )
+            elif self.active_model_type == 'clone':
+                # Voice clone warmup - create temporary reference audio
+                import numpy as np
+                import soundfile as sf
+                
+                warmup_ref_text = "This is a warmup."
+                sample_rate = 24000
+                silence = np.zeros(sample_rate, dtype=np.float32)
+                warmup_audio_path = os.path.join(self.temp_dir, "warmup_ref.wav")
+                sf.write(warmup_audio_path, silence, sample_rate)
+                
+                audio_list, sr = self.active_model.generate_voice_clone(
+                    text=warmup_text,
+                    language="English",
+                    ref_audio=warmup_audio_path,
+                    ref_text=warmup_ref_text,
+                    max_new_tokens=50,
+                    non_streaming_mode=True,
+                    xvec_only=True,  # More compatible
+                )
+                
+                # Clean up
+                if os.path.exists(warmup_audio_path):
+                    os.remove(warmup_audio_path)
+            else:
+                # Render model warmup (same as clone)
+                import numpy as np
+                import soundfile as sf
+                
+                warmup_ref_text = "This is a warmup."
+                sample_rate = 24000
+                silence = np.zeros(sample_rate, dtype=np.float32)
+                warmup_audio_path = os.path.join(self.temp_dir, "warmup_ref.wav")
+                sf.write(warmup_audio_path, silence, sample_rate)
+                
+                audio_list, sr = self.active_model.generate_voice_clone(
+                    text=warmup_text,
+                    language="English",
+                    ref_audio=warmup_audio_path,
+                    ref_text=warmup_ref_text,
+                    max_new_tokens=50,
+                    non_streaming_mode=True,
+                    xvec_only=True,
+                )
+                
+                if os.path.exists(warmup_audio_path):
+                    os.remove(warmup_audio_path)
             
             self.log("CUDA graphs captured and ready")
             
@@ -424,12 +460,13 @@ class AudioEngine:
         self.log(f"Generating Voice Design...")
         
         if self.use_faster_qwen:
-            # FasterQwen3TTS API
+            # FasterQwen3TTS API with non_streaming_mode for best performance
             audio_list, sr = self.active_model.generate_voice_design(
                 text=text,
                 language="English",
                 instruct=description,
-                max_new_tokens=2048
+                max_new_tokens=2048,
+                non_streaming_mode=True  # Critical for CUDA graph performance
             )
             # Convert list of audio chunks to single array
             wav_out = np.concatenate(audio_list) if isinstance(audio_list, list) else audio_list
@@ -457,13 +494,15 @@ class AudioEngine:
         self.log(f"Cloning voice...")
         
         if self.use_faster_qwen:
-            # FasterQwen3TTS API
+            # FasterQwen3TTS API with non_streaming_mode for best performance
             audio_list, sr = self.active_model.generate_voice_clone(
                 text=text,
                 language="English",
                 ref_audio=ref_audio_path,
                 ref_text=ref_text,
-                max_new_tokens=2048
+                max_new_tokens=2048,
+                non_streaming_mode=True,  # Critical for CUDA graph performance
+                xvec_only=True,  # Use x-vector only mode (more compatible)
             )
             wav_out = np.concatenate(audio_list) if isinstance(audio_list, list) else audio_list
         else:
@@ -553,7 +592,7 @@ class AudioEngine:
                     
                     if voice_prompt is not None:
                         if self.use_faster_qwen:
-                            # FasterQwen3TTS API
+                            # FasterQwen3TTS API with non_streaming_mode for best performance
                             audio_list, sr = self.active_model.generate_voice_clone(
                                 text=batch_texts,
                                 language="English",
@@ -562,6 +601,7 @@ class AudioEngine:
                                 temperature=self.temperature,
                                 top_p=self.top_p,
                                 repetition_penalty=self.repetition_penalty,
+                                non_streaming_mode=True,  # Critical for CUDA graph performance
                             )
                             # Concatenate audio chunks if list
                             wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
@@ -574,7 +614,7 @@ class AudioEngine:
                             )
                     else:
                         if self.use_faster_qwen:
-                            # FasterQwen3TTS API
+                            # FasterQwen3TTS API with non_streaming_mode for best performance
                             audio_list, sr = self.active_model.generate_voice_clone(
                                 text=batch_texts,
                                 language="English",
@@ -584,6 +624,7 @@ class AudioEngine:
                                 temperature=self.temperature,
                                 top_p=self.top_p,
                                 repetition_penalty=self.repetition_penalty,
+                                non_streaming_mode=True,  # Critical for CUDA graph performance
                             )
                             wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
                         else:
@@ -856,7 +897,7 @@ class AudioEngine:
                         batch_start = time.time()
                         if voice_prompt:
                             if self.use_faster_qwen:
-                                # FasterQwen3TTS API
+                                # FasterQwen3TTS API with non_streaming_mode for best performance
                                 audio_list, sr = self.active_model.generate_voice_clone(
                                     text=batch_texts,
                                     language="English",
@@ -865,6 +906,7 @@ class AudioEngine:
                                     temperature=self.temperature,
                                     top_p=self.top_p,
                                     repetition_penalty=self.repetition_penalty,
+                                    non_streaming_mode=True,  # Critical for CUDA graph performance
                                 )
                                 wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
                             else:
@@ -875,7 +917,7 @@ class AudioEngine:
                                     repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
                         else:
                             if self.use_faster_qwen:
-                                # FasterQwen3TTS API
+                                # FasterQwen3TTS API with non_streaming_mode for best performance
                                 audio_list, sr = self.active_model.generate_voice_clone(
                                     text=batch_texts,
                                     language="English",
@@ -885,6 +927,7 @@ class AudioEngine:
                                     temperature=self.temperature,
                                     top_p=self.top_p,
                                     repetition_penalty=self.repetition_penalty,
+                                    non_streaming_mode=True,  # Critical for CUDA graph performance
                                 )
                                 wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
                             else:
