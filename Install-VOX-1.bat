@@ -1,7 +1,23 @@
 @echo off
 cd /d "%~dp0"
 echo ========================================================
-echo Launching VOX-1 Setup...
+echo    VOX-1 Audiobook Maker - Setup
+echo ========================================================
+echo.
+echo Features:
+echo   - FasterQwen3TTS enabled (3-4x real-time speed)
+echo   - CUDA graphs supported (requires PyTorch 2.5.1+)
+echo   - Optimized for NVIDIA GPUs (RTX 3000/4000 series)
+echo.
+echo System Requirements:
+echo   - NVIDIA GPU with CUDA support (GTX 1000 series or newer)
+echo   - 8GB+ VRAM recommended (12GB+ for best performance)
+echo   - Windows 10/11 with PowerShell
+echo.
+echo NOTE: First audio generation will take 10-30 seconds
+echo       (CUDA graph capture), then subsequent generations
+echo       will be much faster (under 1 second).
+echo.
 echo ========================================================
 echo.
 

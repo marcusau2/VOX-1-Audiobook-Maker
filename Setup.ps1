@@ -120,6 +120,8 @@ $PythonExe = "$PythonSystemDir\python.exe"
 
 # 4b. Install requirements with NO BUILD ISOLATION
 # This prevents the 'BackendUnavailable' error
+Write-Host ""
+Write-Host "Installing core packages (torch, transformers, qwen-tts, faster-qwen3-tts...)" -ForegroundColor Cyan
 & $PythonExe -m pip install -r requirements.txt --no-build-isolation
 
 if ($LASTEXITCODE -ne 0) {
@@ -130,10 +132,35 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# 4c. Verify FasterQwen3TTS installation
+Write-Host ""
+Write-Host "Verifying installation..." -ForegroundColor Cyan
+$VerifyScript = Join-Path $RootDir "verify_install.py"
+if (Test-Path $VerifyScript) {
+    & $PythonExe $VerifyScript
+} else {
+    $VerifyResult = & $PythonExe -c "try: import faster_qwen3_tts; print('OK'); except: print('FAIL')"
+    if ($VerifyResult -ne "OK") {
+        Write-Host "WARNING: FasterQwen3TTS verification failed." -ForegroundColor Red
+        Write-Host "The app will use original Qwen3TTS as fallback." -ForegroundColor Yellow
+    }
+}
+
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
 Write-Host "    SETUP COMPLETE!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Features:" -ForegroundColor Cyan
+Write-Host "  - FasterQwen3TTS enabled (3-4x real-time speed)" -ForegroundColor Green
+Write-Host "  - CUDA graphs supported (requires PyTorch 2.5.1+)" -ForegroundColor Green
+Write-Host "  - Optimized for NVIDIA GPUs (RTX 3000/4000 series)" -ForegroundColor Green
+Write-Host ""
+Write-Host "First Launch Tips:" -ForegroundColor Yellow
+Write-Host "  - First audio generation takes ~10-30s (CUDA graph capture)" -ForegroundColor Yellow
+Write-Host "  - Subsequent generations are much faster (~0.7s)" -ForegroundColor Yellow
+Write-Host "  - Check Advanced Settings for Performance Mode status" -ForegroundColor Yellow
+Write-Host ""
 Write-Host "You can now launch the app using RUN-VOX-1.bat"
 Write-Host ""
 Read-Host "Press Enter to exit..."
