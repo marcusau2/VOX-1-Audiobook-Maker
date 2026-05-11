@@ -133,35 +133,29 @@ If you downloaded as ZIP:
 **Note:** Your audiobooks and settings are never deleted during updates!
 
 ---
+---
 
 ## ⚡ Performance Optimization (Optional)
 
-### Flash Attention 2 - Reduce VRAM Usage
+### Understanding CUDA Graph Performance
 
-Flash Attention 2 is an optimization that can help reduce VRAM usage during generation:
+**Why is the first generation slow?**
 
-1. **Run the installer:**
-   ```
-   Double-click: Install-Flash-Attention.bat
-   ```
+The first time you generate audio with each model type, FasterQwen3TTS captures CUDA graphs for your specific GPU. This is a **one-time optimization** that enables 3-4x real-time performance.
 
-2. **Enable in VOX-1:**
-   - Launch VOX-1
-   - Go to Advanced Settings tab
-   - Set "Attention Implementation" to **"auto"**
-   - Click "Apply Settings"
+**What to expect:**
+- **First generation:** 10-30 seconds (normal - graphs being captured)
+- **Second generation:** <1 second (CUDA graphs active!)
+- **All subsequent:** <1 second (consistent high speed)
 
-3. **Test incrementally:**
-   - Start with your current batch size
-   - Monitor VRAM in Activity Log
-   - Gradually increase if stable
+**Tips:**
+- Keep the app open - graphs stay cached while VOX-1 runs
+- Each model type (Design/Clone/Render) captures separately
+- The delay is automatic - no action needed!
 
-**Requirements:** NVIDIA RTX 3000/4000 series GPU (Ampere or newer)
-
-**Detailed guide:** See [FLASH_ATTENTION.md](FLASH_ATTENTION.md) for complete installation and usage instructions.
+**Check status:** Go to Advanced Settings → Look for "⚡ Performance Mode"
 
 ---
-
 ## 💻 System Requirements
 
 - **OS:** Windows 10/11 64-bit
