@@ -54,10 +54,17 @@ These voices were created using **Voice Design** - just describe the voice you w
 
 ### What This Means For You
 
-| Generation | Time | Speed |
-|------------|------|-------|
-| **First Generation** | ~10-30 seconds | Includes CUDA graph capture |
-| **Subsequent Generations** | **<1 second** | **3-4x faster than real-time!** |
+**Test Conditions:** 3 seconds of generated audio (typical sentence)
+
+| Generation | Time | Audio Duration | Speed (RTF) |
+|------------|------|----------------|-------------|
+| **First Generation** | ~10-30 seconds | 3 seconds | 0.1-0.3x (includes CUDA graph capture) |
+| **Subsequent Generations** | **<1 second** | 3 seconds | **3.4x faster than real-time!** |
+
+**Real-Time Factor (RTF) Explained:**
+- RTF < 1.0 = Slower than real-time (first generation)
+- RTF > 1.0 = Faster than real-time (subsequent generations)
+- **Our RTF: 3.4+** = Generate 3.4 seconds of audio per 1 second of processing
 
 ### Important: First Generation Delay
 
@@ -452,17 +459,3 @@ For issues, questions, or feature requests:
 ---
 
 **Last Updated:** January 2026
-
----
-
-## 🙏 Credits & Acknowledgments
-
-### FasterQwen3TTS
-
-This project uses **[faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts)** by **Andres Marafioti**, which provides CUDA graph optimization for Qwen3-TTS models.
-
-**Why it matters:** This library enables 3-4x real-time audio generation through advanced CUDA graph capture techniques, making VOX-1 significantly faster than the original implementation.
-
-**License:** MIT License
-
----
