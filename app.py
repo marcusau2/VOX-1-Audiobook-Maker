@@ -66,7 +66,7 @@ class Vox1App(ctk.CTk):
             "show_timing": True,
             "debug_mode": False,
             "smart_import": True,
-            "attn_implementation": "auto"
+            "attn_implementation": "sdpa"  # Default for FasterQwen3TTS
         }
 
     def _save_settings(self):
@@ -521,30 +521,56 @@ class Vox1App(ctk.CTk):
         attn_frame.grid(row=4, column=0, sticky="ew", pady=10)
         attn_frame.grid_columnconfigure(0, weight=1)
 
-        attn_label = ctk.CTkLabel(attn_frame, text="Attention Implementation (Flash Attention)",
+        # Note: FasterQwen3TTS uses sdpa by default (optimal for CUDA graphs)
+        attn_label = ctk.CTkLabel(attn_frame, text="Attention Implementation",
                                   font=("Roboto", 14, "bold"))
         attn_label.grid(row=0, column=0, sticky="w", pady=5)
 
-        self.attn_implementation_var = ctk.StringVar(value=self.settings.get("attn_implementation", "auto"))
+        self.attn_implementation_var = ctk.StringVar(value=self.settings.get("attn_implementation", "sdpa"))
         self.attn_menu = ctk.CTkOptionMenu(attn_frame,
                                            variable=self.attn_implementation_var,
-                                           values=["auto", "flash_attention_2", "sdpa", "eager"],
+                                           values=["sdpa", "eager"],
                                            width=200)
         self.attn_menu.grid(row=1, column=0, sticky="w", pady=5)
 
         attn_info = ctk.CTkLabel(attn_frame,
-            text="ℹ️ Attention method for transformer layers (affects VRAM & speed):\n" +
-                 "   • auto = Detect Flash Attention, fallback to default\n" +
-                 "   • flash_attention_2 = Force Flash Attention 2 (2-4x less VRAM)\n" +
-                 "   • sdpa = PyTorch scaled dot product (built-in optimization)\n" +
-                 "   • eager = Standard attention (no optimization)\n" +
-                 "   Test different methods to find what works best!",
+            text="ℹ️ Attention method for transformer layers:\n" +
+                 "   • sdpa = PyTorch scaled dot product (default, recommended)\n" +
+                 "   • eager = Standard attention (fallback if sdpa fails)\n" +
+                 "   • Flash Attention not needed with CUDA graphs",
             font=("Roboto", 11), justify="left", text_color="gray")
         attn_info.grid(row=2, column=0, sticky="w", pady=5)
 
+        # Faster-Qwen3 Status
+        faster_qwen_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
+        faster_qwen_frame.grid(row=5, column=0, sticky="ew", pady=10)
+
+        faster_qwen_label = ctk.CTkLabel(faster_qwen_frame, text="⚡ Performance Mode",
+                                          font=("Roboto", 14, "bold"))
+        faster_qwen_label.grid(row=0, column=0, sticky="w", pady=5)
+
+        # Status label (will be updated on engine init)
+        self.faster_qwen_status_label = ctk.CTkLabel(
+            faster_qwen_frame,
+            text="Checking...",
+            font=("Roboto", 12),
+            text_color="gray"
+        )
+        self.faster_qwen_status_label.grid(row=1, column=0, sticky="w")
+
+        faster_qwen_info = ctk.CTkLabel(
+            faster_qwen_frame,
+            text="ℹ️ Faster-Qwen3TTS uses CUDA graphs for 5-10x speedup\n" +
+                 "   • First generation includes CUDA graph capture (~2-3s)\n" +
+                 "   • Subsequent generations are real-time (RTF > 1.0)\n" +
+                 "   • Requires PyTorch 2.5.1+ and CUDA 12.1+",
+            font=("Roboto", 11), justify="left", text_color="gray"
+        )
+        faster_qwen_info.grid(row=2, column=0, sticky="w", pady=5)
+
         # Separator
         sep1b = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep1b.grid(row=5, column=0, sticky="ew", pady=15)
+        sep1b.grid(row=6, column=0, sticky="ew", pady=15)
 
         # Chunk Size
         chunk_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
@@ -790,14 +816,22 @@ class Vox1App(ctk.CTk):
                 self._start_engine_thread(size)
 
                 # Show success message
-                self.after(0, lambda: messagebox.showinfo("Settings Applied",
-                    f"Advanced settings applied successfully!\n\n" +
+                # Build success message with Faster-Qwen3 status
+                msg = (f"Advanced settings applied successfully!\n\n" +
                     f"Batch Size: {self.batch_size_var.get()}\n" +
                     f"Chunk Size: {self.chunk_size_var.get()}\n" +
                     f"Attention: {self.attn_implementation_var.get()}\n" +
                     f"Temperature: {self.temperature_var.get():.1f}\n" +
-                    f"Repetition Penalty: {self.repetition_penalty_var.get():.2f}\n\n" +
-                    f"Engine reloaded with new settings."))
+                    f"Repetition Penalty: {self.repetition_penalty_var.get():.2f}")
+                
+                if hasattr(self, 'engine') and self.engine:
+                    if self.engine.use_faster_qwen:
+                        msg += "\n\n✅ Faster-Qwen3TTS Active (CUDA Graphs Enabled)"
+                    else:
+                        msg += "\n\n⚠️ Using Original Qwen3TTS"
+                
+                msg += "\n\nEngine reloaded with new settings."
+                self.after(0, lambda: messagebox.showinfo("Settings Applied", msg))
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", f"Failed to apply settings: {str(e)}"))
 
@@ -843,6 +877,20 @@ class Vox1App(ctk.CTk):
                 )
                 self.after(0, lambda: self.status_bar.configure(text=f"System Ready ({size})"))
                 self.after(0, lambda: self.gen_btn.configure(state="normal"))
+                
+                # Update Faster-Qwen3 status
+                if hasattr(self, 'faster_qwen_status_label') and self.engine:
+                    if self.engine.use_faster_qwen:
+                        self.after(0, lambda: self.faster_qwen_status_label.configure(
+                            text="✅ Faster-Qwen3TTS Active (CUDA Graphs)",
+                            text_color="green"
+                        ))
+                    else:
+                        self.after(0, lambda: self.faster_qwen_status_label.configure(
+                            text="⚠️ Using Original Qwen3TTS",
+                            text_color="orange"
+                        ))
+                
                 self.after(0, self._check_render_ready)
             except Exception as e:
                 err_msg = traceback.format_exc()
