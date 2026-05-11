@@ -182,7 +182,7 @@ The first time you generate audio with each model type, FasterQwen3TTS captures 
 - **High-Quality TTS** - Qwen3-TTS state-of-the-art models (0.6B/1.7B)
 - **GPU Accelerated** - CUDA-optimized inference on NVIDIA GPUs
 - **Batch Processing** - Process multiple chunks simultaneously
-- **VRAM Optimization** - Smart batching + optional Flash Attention support
+- **VRAM Optimization** - Smart batching + CUDA graph optimization (3-4x real-time speed)
 
 ### 📚 Production Features
 - **Chapter Support** - Automatic EPUB/PDF chapter detection
@@ -227,7 +227,7 @@ Adjust in **Advanced Settings** tab:
 - Start with recommended batch size
 - Monitor VRAM usage in Activity Log
 - Increase gradually if VRAM usage is low
-- Install Flash Attention 2 (optional) to potentially reduce VRAM usage - see [Performance Optimization](#-performance-optimization-optional)
+- Understand CUDA graph capture (see Performance Optimization section)
 
 ---
 
