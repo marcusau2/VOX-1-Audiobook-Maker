@@ -445,7 +445,7 @@ This project is licensed under the Apache License 2.0.
 Built with:
 - [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)
 - [PyTorch](https://pytorch.org/)
-- [Gradio](https://gradio.app/)
+- [CustomTkinter](https://customtkinter.tomschimansky.com/)
 - [FFmpeg](https://ffmpeg.org/)
 
 ---

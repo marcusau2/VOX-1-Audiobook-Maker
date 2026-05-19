@@ -67,7 +67,7 @@ The `requirements.txt` includes:
 
 - **PyTorch** (2.0+) with CUDA support
 - **Transformers** (Hugging Face)
-- **Gradio** (UI framework)
+- **CustomTkinter** (UI framework)
 - **FFmpeg** (audio processing)
 - **numpy, scipy** (numerical computing)
 - **Qwen3-TTS** models and dependencies
@@ -219,7 +219,7 @@ Edit `user_settings.json` to customize defaults:
 
 ```
 VOX-1-Audiobook-Maker/
-├── app.py                  # Main GUI (Gradio)
+├── app.py                  # Main GUI (CustomTkinter)
 ├── backend.py              # TTS engine (batch processing)
 ├── requirements.txt        # Python dependencies
 ├── user_settings.json      # Configuration
@@ -236,7 +236,7 @@ VOX-1-Audiobook-Maker/
 
 ### Key Files
 
-- **app.py** - Gradio UI, event handlers
+- **app.py** - CustomTkinter UI, event handlers
 - **backend.py** - TTS generation, batch processing, VRAM monitoring
 - **booksmith_module/core.py** - EPUB/PDF chapter extraction
 - **user_settings.json** - Persistent configuration
