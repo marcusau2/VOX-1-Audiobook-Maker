@@ -55,7 +55,7 @@ class Vox1App(ctk.CTk):
         except: pass
         return {
             "last_voice": None,
-            "batch_size": 2,
+            "batch_size": 10,
             "chunk_size": 500,
             "guidance_scale": 2.0,
             "num_step": 32,
@@ -495,11 +495,11 @@ class Vox1App(ctk.CTk):
         batch_frame.grid(row=2, column=0, sticky="ew", pady=10)
         batch_frame.grid_columnconfigure(0, weight=1)
 
-        batch_label = ctk.CTkLabel(batch_frame, text="Batch Size (Default: 2)",
+        batch_label = ctk.CTkLabel(batch_frame, text="Batch Size (Default: 10)",
                                    font=("Roboto", 14, "bold"))
         batch_label.grid(row=0, column=0, sticky="w", pady=5)
 
-        self.batch_size_var = ctk.IntVar(value=self.settings.get("batch_size", 2))
+        self.batch_size_var = ctk.IntVar(value=self.settings.get("batch_size", 10))
         self.batch_slider = ctk.CTkSlider(batch_frame, from_=1, to=64, number_of_steps=63,
                                          variable=self.batch_size_var, command=self._update_batch_label)
         self.batch_slider.grid(row=1, column=0, sticky="ew", pady=5)
@@ -510,10 +510,10 @@ class Vox1App(ctk.CTk):
 
         batch_info = ctk.CTkLabel(batch_frame,
             text="ℹ️ Number of text chunks processed simultaneously on your GPU.\n" +
-                 "   • Batch 5-10 = Test first on 24GB GPUs (RTX 4090)\n" +
-                 "   • Batch 20-64 = Experimental (based on autiobook success)\n" +
-                 "   • Batch 2-3 = Safe fallback for 12GB GPUs\n" +
-                 "   • Start low and increase gradually to find optimal value",
+                 "   • 8-10 GB VRAM: start at 4-6\n" +
+                 "   • 12 GB VRAM: start at 8-10 (tested stable on RTX 4070 Ti)\n" +
+                 "   • 16-24 GB VRAM: start at 16-32\n" +
+                 "   • Watch VRAM in Activity Log — if below 50%, increase batch size",
             font=("Roboto", 11), justify="left", text_color="gray")
         batch_info.grid(row=3, column=0, sticky="w", pady=5)
 
@@ -652,8 +652,8 @@ class Vox1App(ctk.CTk):
 
         tips_text = (
             "• Start with defaults if unsure\n" 
-            "• Watch Activity Log during first render to see VRAM usage\n" 
-            "• If VRAM usage stays low (under 50%), try increasing batch size\n" 
+            "• Max VRAM used during rendering is ~3.5GB (model) + chunks\n" 
+            "• If VRAM stays under 50%, increase batch size for faster rendering\n" 
             "• If you get memory errors, decrease batch size by 2-3\n" 
             "• Guidance Scale 2.0 and Diffusion Steps 32 work well for most voices"
         )
@@ -698,17 +698,17 @@ class Vox1App(ctk.CTk):
                 props = torch.cuda.get_device_properties(0)
                 total_vram_gb = props.total_memory / (1024**3)
 
-                # OmniVoice diffusion model is VRAM-efficient
+                # OmniVoice diffusion model — VRAM-efficient, conservative estimates
                 if total_vram_gb >= 22:  # 4090 (24GB)
-                    suggested = 64
+                    suggested = 24
                 elif total_vram_gb >= 16:  # 4080 (16GB)
-                    suggested = 48
-                elif total_vram_gb >= 11:  # 3080 Ti (12GB)
-                    suggested = 32
-                elif total_vram_gb >= 7:   # 3070 (8GB)
                     suggested = 16
+                elif total_vram_gb >= 11:  # 4070 Ti / 3080 Ti (12GB)
+                    suggested = 10
+                elif total_vram_gb >= 7:   # 3070 / 4060 Ti (8GB)
+                    suggested = 6
                 elif total_vram_gb >= 5:   # 6GB cards
-                    suggested = 8
+                    suggested = 4
                 else:
                     suggested = 2
 
@@ -726,14 +726,14 @@ class Vox1App(ctk.CTk):
 
     def _reset_advanced_settings(self):
         """Reset all advanced settings to defaults."""
-        self.batch_size_var.set(2)
+        self.batch_size_var.set(10)
         self.chunk_size_var.set(500)
         self.guidance_scale_var.set(2.0)
         self.num_step_var.set(32)
         self.show_vram_var.set(True)
         self.show_timing_var.set(True)
         self.debug_mode_var.set(False)
-        self._update_batch_label(2)
+        self._update_batch_label(10)
         self._update_chunk_label(500)
         self._update_gs_label(2.0)
         self._update_step_label(32)
