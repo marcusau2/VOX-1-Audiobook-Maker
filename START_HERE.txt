@@ -1,61 +1,56 @@
 ============================================
-  VOX-1 Audiobook Maker - Quick Start Guide
+  VOX-1 Audiobook Maker - Quick Start
 ============================================
 
-CONGRATULATIONS! VOX-1 is now installed.
-
-============================================
-HOW TO USE VOX-1:
-============================================
-
-1. LAUNCH THE APP:
-   Double-click: RUN-VOX-1.bat
-
-   A desktop window will open shortly.
-   Keep the console window open while using VOX-1!
-
-2. CONVERT TEXT TO AUDIO:
-   - Click "Browse" and select your .txt file
-   - Choose voice settings (optional)
-   - Click "Generate Audiobook"
-   - Wait for processing to complete
-   - Your audiobook will be in the VOX-Output folder
-
-============================================
 SYSTEM REQUIREMENTS:
+  - Windows 10/11 64-bit
+  - NVIDIA GPU with 8GB+ VRAM (12GB recommended)
+  - Python 3.12
+  - FFmpeg (for M4B output)
+
+============================================
+HOW TO LAUNCH:
 ============================================
 
-- NVIDIA GPU with 8GB+ VRAM (required)
-- Windows 10/11
-- Internet connection (first run only - downloads AI models)
+  Double-click: RUN-VOX-1.bat
+
+  Or from command line:
+    python app.py
+
+  Keep the console window open while using VOX-1!
+
+============================================
+BASIC WORKFLOW:
+============================================
+
+  1. THE LAB TAB — Create a voice
+     - Voice Design: enter comma-separated attributes
+       e.g. "male, moderate pitch, british accent"
+     - Voice Clone: select a reference audio file
+     - Click "Generate Preview", then "Save as Master Voice"
+
+  2. BOOKSMITH TAB (optional) — Load EPUB/PDF
+     - Select chapters to include
+     - Edit text if needed
+     - Click "Process & Send to Studio"
+
+  3. STUDIO TAB — Render audiobook
+     - Load Master Voice (if not already loaded)
+     - Load book (.txt or .json manifest)
+     - Click "Render Audiobook"
+
+============================================
+FIRST RUN:
+============================================
+
+  On first launch, the OmniVoice AI model (~3.5 GB)
+  will download automatically. This only happens once.
 
 ============================================
 NEED HELP?
 ============================================
 
-Read the full guide: USER_GUIDE.txt
-
-Common issues:
-- "CUDA error": Your GPU doesn't have enough VRAM
-- App won't start: Run Launch-Debug.bat to see error details
-- Slow performance: Close other GPU-intensive programs
+  Full guide: docs/USER_GUIDE.md
+  Debug mode: Launch-Debug.bat
 
 ============================================
-MODELS:
-============================================
-
-On first use, VOX-1 will download AI models (~11 GB).
-This is automatic and only happens once.
-
-============================================
-TIPS:
-============================================
-
-- Keep the console window open while using the app
-- The app saves your settings automatically
-- Processing time depends on text length and GPU speed
-- Output files are in: VOX-Output\
-
-============================================
-
-Enjoy creating audiobooks with VOX-1!

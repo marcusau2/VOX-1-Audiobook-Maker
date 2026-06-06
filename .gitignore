@@ -10,9 +10,8 @@ venv/
 ENV/
 env/
 
-# Installation artifacts (these are downloaded during installation)
-python310/
-ComfyUI-Qwen-TTS/
+# Portable Python environment (local install, not for repo)
+system_python/
 
 # Output directories
 Output/
@@ -37,7 +36,6 @@ models/
 # Temporary files
 *.tmp
 *.bak
-test-download.bat
 
 # User data files
 user_settings.json
@@ -65,29 +63,8 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Project documentation files (not needed in repo)
-*HANDOFF*.md
-*SESSION*.md
-*STATUS*.md
-*CLEANUP*.md
-*REVERT*.md
-*CREATION*.md
-LAUNCHER_GUIDE.md
-PORTABLE_VERSION_GUIDE.md
-PUSH_TO_GITHUB.txt
-build_log.txt
-README_UPDATED_BUILD.txt
-GITHUB_SETUP.md
-PROJECT_STATUS.md
-build.py
-test_imports.py
-
-# Internal handoff and fix documentation (for Claude/development only)
-Handoff.txt
-handoff.txt
-VRAM_FIX_INFO.txt
-VRAM_GROWTH_FIX.txt
-*_FIX_INFO.txt
-*_GROWTH_FIX.txt
-
-# Note: START_HERE.txt is user-facing and should be kept in repo
+# Internal dev artifacts (not needed in repo)
+AGENTS.md
+docs/LOOPING_INVESTIGATION.md
+docs/OMNIVOICE_INTEGRATION_PLAN.md
+nul

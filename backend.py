@@ -2,18 +2,6 @@ import os
 import sys
 import torch
 import soundfile as sf
-import whisper
-# FasterQwen3TTS by Andres Marafioti: https://github.com/andimarafioti/faster-qwen3-tts
-try:
-    from faster_qwen3_tts import FasterQwen3TTS
-    FASTER_QWEN_AVAILABLE = True
-except ImportError:
-    FASTER_QWEN_AVAILABLE = False
-    from qwen_tts import Qwen3TTSModel
-    print("Warning: faster-qwen3-tts not installed, using original Qwen3TTS")
-from pydub import AudioSegment
-import numpy as np
-import re
 import traceback
 import shutil
 import time
@@ -22,6 +10,24 @@ import gc
 import subprocess
 import json
 import hashlib
+import warnings
+
+# Suppress noisy Whisper/transformers deprecation warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
+warnings.filterwarnings("ignore", message=".*force_decoder_ids.*")
+warnings.filterwarnings("ignore", message=".*custom logits processor.*")
+warnings.filterwarnings("ignore", message=".*Transcription using a multilingual Whisper.*")
+
+from omnivoice import OmniVoice
+
+# Silence transformers-specific logging (Whisper deprecation messages)
+import logging
+try:
+    logging.getLogger("transformers").setLevel(logging.ERROR)
+except Exception:
+    pass
 
 # ============================================================================
 # SMART IMPORT FEATURE
@@ -30,11 +36,13 @@ import hashlib
 def smart_import_audio(input_path, log_callback=None):
     """
     Optimizes audio file for voice cloning:
-    - Normalizes volume (DISABLED to preserve quality)
     - Finds best 5-second segment if file is long
     - Strips silence
     - Exports as WAV (Original Sample Rate)
     """
+    from pydub import AudioSegment
+    import numpy as np
+
     def log(msg):
         if log_callback:
             log_callback(msg)
@@ -42,34 +50,21 @@ def smart_import_audio(input_path, log_callback=None):
     try:
         log("Smart Import: Loading audio file...")
 
-        # 1. Load audio
         audio = AudioSegment.from_file(input_path)
-        original_duration = len(audio) / 1000  # Convert to seconds
-
-        # 2. Convert to mono (Required for model structure, but keep sample rate high)
+        original_duration = len(audio) / 1000
         audio = audio.set_channels(1)
-        
-        # --- DISABLED NORMALIZATION to preserve original dynamics ---
-        # change_in_dBFS = -20 - audio.dBFS
-        # audio = audio.apply_gain(change_in_dBFS)
         log("Smart Import: Converted to mono (Volume untouched)")
 
-        # 3. If <= 10 seconds, just strip silence and return
         if len(audio) <= 10000:
             log("Smart Import: File is short, optimizing...")
             audio = strip_silence(audio, silence_thresh=-40, padding=100)
-
             output_dir = "VOX-Output"
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, "master_voice_optimized.wav")
-
-            # Keep original sample rate
-            audio.export(output_path, format="wav") 
-            
+            audio.export(output_path, format="wav")
             duration_msg = f"{len(audio)/1000:.1f}s"
             return output_path, f"Optimized {duration_msg} clip"
 
-        # 4. For long files, find best 5-second segment (Stability Optimization)
         log("Smart Import: Analyzing speech patterns for best 5s clip...")
         best_segment, segment_start = find_best_speech_segment(audio, target_duration=5000)
         best_segment = strip_silence(best_segment, silence_thresh=-40, padding=100)
@@ -77,8 +72,6 @@ def smart_import_audio(input_path, log_callback=None):
         output_dir = "VOX-Output"
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "master_voice_optimized.wav")
-
-        # Export 'best_segment' (the 5s clip), NOT 'audio'
         best_segment.export(output_path, format="wav")
 
         start_min = int(segment_start // 60)
@@ -94,7 +87,11 @@ def smart_import_audio(input_path, log_callback=None):
         if log_callback: log_callback(f"Smart Import error: {str(e)}")
         raise
 
+
 def find_best_speech_segment(audio, target_duration=5000):
+    from pydub import AudioSegment
+    import numpy as np
+
     samples = np.array(audio.get_array_of_samples())
     sample_rate = audio.frame_rate
     frame_length = int(sample_rate * 0.01)
@@ -109,7 +106,8 @@ def find_best_speech_segment(audio, target_duration=5000):
         rms_values.append(rms)
 
     rms_values = np.array(rms_values)
-    if rms_values.max() > 0: rms_values = rms_values / rms_values.max()
+    if rms_values.max() > 0:
+        rms_values = rms_values / rms_values.max()
 
     speech_threshold = 0.1
     window_size_ms = target_duration
@@ -127,11 +125,11 @@ def find_best_speech_segment(audio, target_duration=5000):
         speech_frames = np.sum(window_rms > speech_threshold)
         total_frames = len(window_rms)
         speech_density = speech_frames / total_frames if total_frames > 0 else 0
-        
+
         is_speech = window_rms > speech_threshold
         transitions = np.sum(np.diff(is_speech.astype(int)) != 0)
         continuity_score = 1.0 / (1.0 + transitions * 0.1)
-        
+
         score = speech_density * 0.7 + continuity_score * 0.3
         if score > best_score:
             best_score = score
@@ -141,30 +139,31 @@ def find_best_speech_segment(audio, target_duration=5000):
     end_ms = min(start_ms + window_size_ms, len(audio))
     return audio[start_ms:end_ms], start_ms / 1000
 
+
 def strip_silence(audio, silence_thresh=-40, padding=200):
     from pydub.silence import detect_nonsilent
     nonsilent_ranges = detect_nonsilent(audio, min_silence_len=100, silence_thresh=silence_thresh)
-    if not nonsilent_ranges: return audio
+    if not nonsilent_ranges:
+        return audio
     start_trim = max(0, nonsilent_ranges[0][0] - padding)
     end_trim = min(len(audio), nonsilent_ranges[-1][1] + padding)
     return audio[start_trim:end_trim].fade_in(duration=50).fade_out(duration=50)
 
+
+# ============================================================================
+# AUDIO ENGINE
 # ============================================================================
 
 class AudioEngine:
-    def __init__(self, log_callback=print, model_size="1.7B", batch_size=5, chunk_size=500,
-                 temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05,
-                 attn_implementation="auto"):
+    def __init__(self, log_callback=print, batch_size=5, chunk_size=500,
+                 guidance_scale=2.0, num_step=32, class_temperature=0.0):
         self.log = log_callback
-        self.model_size = model_size
         self.batch_size = batch_size
         self.chunk_size = chunk_size
 
-        self.temperature = temperature
-        self.top_p = top_p
-        self.top_k = top_k
-        self.repetition_penalty = repetition_penalty
-        self.attn_implementation = attn_implementation
+        self.guidance_scale = guidance_scale
+        self.num_step = num_step
+        self.class_temperature = class_temperature
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.log(f"Initializing AudioEngine on {self.device}...")
@@ -173,7 +172,7 @@ class AudioEngine:
             torch.backends.cudnn.benchmark = False
             torch.backends.cudnn.deterministic = False
             torch.cuda.empty_cache()
-            self._check_vram_and_recommend()
+            self._check_vram()
 
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.temp_dir = os.path.join(self.base_dir, "temp_work")
@@ -192,253 +191,18 @@ class AudioEngine:
 
         self._setup_ffmpeg()
 
-        # Check PyTorch version for CUDA graphs compatibility
-        pytorch_ok = True
-        try:
-            torch_version = torch.__version__
-            major, minor = map(int, torch_version.split('.')[:2])
-            
-            if major < 2 or (major == 2 and minor < 5):
-                self.log(f"PyTorch {torch_version} detected. CUDA graphs require PyTorch 2.5.1+")
-                self.log("Using original Qwen3TTS (upgrade PyTorch for 5-10x speedup)")
-                pytorch_ok = False
-            else:
-                self.log(f"PyTorch {torch_version} detected (CUDA graphs compatible)")
-        except Exception as e:
-            self.log(f"Could not check PyTorch version: {e}")
-            pytorch_ok = False
-        
-        # Use FasterQwen3TTS if available
-        self.use_faster_qwen = FASTER_QWEN_AVAILABLE and pytorch_ok
-        self.faster_qwen_model = None  # Will be loaded per model type
-        
-        # --- FIXED MODEL SWITCHING LOGIC ---
-        # Voice Design always uses high quality
-        self.design_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign" 
-        
-        # Switch Render/Clone model based on UI selection
-        if "1.7B" in str(self.model_size):
-            self.clone_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-            self.render_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-            self.log("Config: Using 1.7B Model for Cloning & Rendering")
-        else:
-            self.clone_model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
-            self.render_model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
-            self.log("Config: Using 0.6B Model (Fastest) for Cloning & Rendering")
+        self.model = None
+        self._load_model()
 
-        self.active_model_type = None 
-        self.active_model = None
-        self.whisper_model = None
-
-    def _check_vram_and_recommend(self):
+    def _check_vram(self):
         try:
-            total_vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-            current_vram_gb = torch.cuda.memory_allocated(0) / (1024**3)
-            free_vram_gb = total_vram_gb - current_vram_gb
+            total_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            used_gb = torch.cuda.memory_allocated(0) / (1024**3)
+            free_gb = total_gb - used_gb
             self.log(f"GPU: {torch.cuda.get_device_name(0)}")
-            self.log(f"Total VRAM: {total_vram_gb:.1f} GB")
-            self.log(f"Available VRAM: {free_vram_gb:.1f} GB")
+            self.log(f"Total VRAM: {total_gb:.1f} GB | Available: {free_gb:.1f} GB")
         except Exception as e:
             self.log(f"Could not detect VRAM: {e}")
-
-    def _setup_ffmpeg(self):
-        try:
-            result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
-            if result.returncode == 0:
-                self.log("Using system ffmpeg (found in PATH)")
-                return
-        except: pass
-
-        if getattr(sys, 'frozen', False):
-            bundle_dir = sys._MEIPASS
-        else:
-            bundle_dir = self.base_dir
-
-        bundled_ffmpeg = os.path.join(bundle_dir, 'ffmpeg_bundle', 'ffmpeg.exe')
-        if os.path.exists(bundled_ffmpeg):
-            ffmpeg_dir = os.path.dirname(bundled_ffmpeg)
-            os.environ['PATH'] = ffmpeg_dir + os.pathsep + os.environ.get('PATH', '')
-            self.log("Using bundled ffmpeg (system version not found)")
-        else:
-            self.log("WARNING: ffmpeg not found (neither system nor bundled)")
-
-    def _unload_active_model(self):
-        if self.active_model is not None:
-            del self.active_model
-            self.active_model = None
-            self.active_model_type = None
-            gc.collect()
-            if self.device == "cuda":
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
-
-    def _ensure_model(self, model_type):
-        if self.active_model_type == model_type: return 
-
-        self._unload_active_model()
-
-        if model_type == 'design':
-            model_id = self.design_model_id
-            self.log(f"Loading DESIGN model ({model_id})...")
-        elif model_type == 'clone':
-            model_id = self.clone_model_id
-            self.log(f"Loading CLONE model ({model_id})...")
-        else:
-            model_id = self.render_model_id
-            self.log(f"Loading RENDER model ({model_id})...")
-
-        try:
-            # Universal Dtype Check
-            dtype_config = torch.float16 # Default
-            
-            if self.device == "cuda":
-                try:
-                    major_version = torch.cuda.get_device_capability()[0]
-                    if major_version >= 8:
-                        dtype_config = torch.bfloat16
-                        self.log(f"Detected modern GPU (Arch {major_version}.x) - Using bfloat16")
-                    else:
-                        self.log(f"Detected older GPU (Arch {major_version}.x) - Using float16")
-                except:
-                    self.log("Could not detect architecture, defaulting to float16")
-            
-            # Load with FasterQwen3TTS if available
-            if self.use_faster_qwen:
-                self.log("Using FasterQwen3TTS (CUDA graphs enabled)")
-                self.active_model = FasterQwen3TTS.from_pretrained(
-                    model_id,
-                    device=self.device,
-                    dtype=dtype_config,
-                    attn_implementation="sdpa",  # FasterQwen3TTS uses sdpa by default
-                    max_seq_len=2048
-                )
-                # Warm up CUDA graphs with short sequence
-                self.log("Warming up CUDA graphs...")
-                self._warmup_cuda_graphs()
-            else:
-                # Fallback to original Qwen3TTSModel
-                if self.attn_implementation == "auto":
-                    try:
-                        import flash_attn
-                        self.log(f"Flash Attention {flash_attn.__version__} detected")
-                        self.active_model = Qwen3TTSModel.from_pretrained(
-                            model_id, device_map=self.device, dtype=dtype_config,
-                            attn_implementation='flash_attention_2'
-                        )
-                        self.log("✅ Flash Attention 2 enabled successfully")
-                    except ImportError:
-                        self.log("Flash Attention not installed - using default")
-                        self.active_model = Qwen3TTSModel.from_pretrained(
-                            model_id, device_map=self.device, dtype=dtype_config
-                        )
-                    except Exception as e:
-                        self.log(f"Flash Attention failed ({str(e)[:50]}) - using default")
-                        self.active_model = Qwen3TTSModel.from_pretrained(
-                            model_id, device_map=self.device, dtype=dtype_config
-                        )
-                elif self.attn_implementation == "flash_attention_2":
-                    self.log(f"Forcing Flash Attention 2")
-                    self.active_model = Qwen3TTSModel.from_pretrained(
-                        model_id, device_map=self.device, dtype=dtype_config,
-                        attn_implementation='flash_attention_2'
-                    )
-                    self.log("✅ Flash Attention 2 enabled")
-                elif self.attn_implementation in ["sdpa", "eager"]:
-                    self.log(f"Using attention method: {self.attn_implementation}")
-                    self.active_model = Qwen3TTSModel.from_pretrained(
-                        model_id, device_map=self.device, dtype=dtype_config,
-                        attn_implementation=self.attn_implementation
-                    )
-                else:
-                    self.log("Using default attention implementation")
-                    self.active_model = Qwen3TTSModel.from_pretrained(
-                        model_id, device_map=self.device, dtype=dtype_config
-                    )
-            
-            self.active_model_type = model_type
-            self.log(f"Model loaded successfully.")
-            self._log_vram("After Load")
-
-        except Exception as e:
-            self.log(f"Error loading {model_id}: {e}")
-            self.log(traceback.format_exc())
-            raise
-
-    def _warmup_cuda_graphs(self):
-        """Warm up CUDA graphs with a short sequence."""
-        if not self.use_faster_qwen or self.active_model is None:
-            return
-        
-        try:
-            # Short warmup text to capture CUDA graphs
-            warmup_text = "Hello, this is a warmup."
-            
-            # Run a short generation to capture CUDA graphs
-            self.log("Capturing CUDA graphs (this may take a moment)...")
-            
-            # Check model type for appropriate warmup
-            if self.active_model_type == 'design':
-                # Voice design warmup
-                audio_list, sr = self.active_model.generate_voice_design(
-                    text=warmup_text,
-                    instruct="Warmup",
-                    language="English",
-                    non_streaming_mode=True,
-                    max_new_tokens=50,
-                )
-            elif self.active_model_type == 'clone':
-                # Voice clone warmup - create temporary reference audio
-                import numpy as np
-                import soundfile as sf
-                
-                warmup_ref_text = "This is a warmup."
-                sample_rate = 24000
-                silence = np.zeros(sample_rate, dtype=np.float32)
-                warmup_audio_path = os.path.join(self.temp_dir, "warmup_ref.wav")
-                sf.write(warmup_audio_path, silence, sample_rate)
-                
-                audio_list, sr = self.active_model.generate_voice_clone(
-                    text=warmup_text,
-                    language="English",
-                    ref_audio=warmup_audio_path,
-                    ref_text=warmup_ref_text,
-                    max_new_tokens=50,
-                    non_streaming_mode=True,
-                    xvec_only=True,  # More compatible
-                )
-                
-                # Clean up
-                if os.path.exists(warmup_audio_path):
-                    os.remove(warmup_audio_path)
-            else:
-                # Render model warmup (same as clone)
-                import numpy as np
-                import soundfile as sf
-                
-                warmup_ref_text = "This is a warmup."
-                sample_rate = 24000
-                silence = np.zeros(sample_rate, dtype=np.float32)
-                warmup_audio_path = os.path.join(self.temp_dir, "warmup_ref.wav")
-                sf.write(warmup_audio_path, silence, sample_rate)
-                
-                audio_list, sr = self.active_model.generate_voice_clone(
-                    text=warmup_text,
-                    language="English",
-                    ref_audio=warmup_audio_path,
-                    ref_text=warmup_ref_text,
-                    max_new_tokens=50,
-                    non_streaming_mode=True,
-                    xvec_only=True,
-                )
-                
-                if os.path.exists(warmup_audio_path):
-                    os.remove(warmup_audio_path)
-            
-            self.log("CUDA graphs captured and ready")
-            
-        except Exception as e:
-            self.log(f"CUDA graph warmup failed: {e}")
-            self.log("Continuing without warmup (first generation will be slower)")
 
     def _log_vram(self, stage):
         if self.device == "cuda":
@@ -448,105 +212,125 @@ class AudioEngine:
             percent = (reserved / total) * 100
             self.log(f"[{stage}] VRAM: Alloc {allocated:.2f}GB | Rsrv {reserved:.2f}GB / {total:.1f}GB ({percent:.0f}%)")
 
-    def _transcribe_audio(self, audio_path):
-        if self.whisper_model is None:
-            self.log("Loading Whisper model...")
-            self.whisper_model = whisper.load_model("small", device=self.device)
-        result = self.whisper_model.transcribe(audio_path)
-        return result["text"].strip()
+    def _setup_ffmpeg(self):
+        try:
+            result = subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
+            if result.returncode == 0:
+                self.log("Using system ffmpeg (found in PATH)")
+                return
+        except Exception:
+            pass
 
-    def create_voice_design(self, text, description, output_filename="preview_design.wav"):
-        self._ensure_model('design')
-        output_path = os.path.join(self.output_dir, output_filename)
-        self.log(f"Generating Voice Design...")
-        
-        if self.use_faster_qwen:
-            # FasterQwen3TTS API with non_streaming_mode for best performance
-            audio_list, sr = self.active_model.generate_voice_design(
-                text=text,
-                language="English",
-                instruct=description,
-                max_new_tokens=2048,
-                non_streaming_mode=True  # Critical for CUDA graph performance
+        if getattr(sys, 'frozen', False):
+            bundle_dir = sys._MEIPASS
+        else:
+            bundle_dir = self.base_dir
+
+        bundled = os.path.join(bundle_dir, 'ffmpeg_bundle', 'ffmpeg.exe')
+        if os.path.exists(bundled):
+            ffmpeg_dir = os.path.dirname(bundled)
+            os.environ['PATH'] = ffmpeg_dir + os.pathsep + os.environ.get('PATH', '')
+            self.log("Using bundled ffmpeg (system version not found)")
+        else:
+            self.log("WARNING: ffmpeg not found (neither system nor bundled)")
+
+    def _load_model(self):
+        self.log("Loading OmniVoice model (k2-fsa/OmniVoice)...")
+        try:
+            dtype_config = torch.float16
+            if self.device == "cuda":
+                try:
+                    major = torch.cuda.get_device_capability()[0]
+                    if major >= 8:
+                        dtype_config = torch.bfloat16
+                        self.log(f"GPU arch {major}.x — using bfloat16")
+                    else:
+                        self.log(f"GPU arch {major}.x — using float16")
+                except Exception:
+                    self.log("Could not detect GPU arch, defaulting to float16")
+
+            self.model = OmniVoice.from_pretrained(
+                "k2-fsa/OmniVoice",
+                device_map=f"{self.device}:0" if self.device != "cpu" else self.device,
+                dtype=dtype_config,
+                load_asr=True,
             )
-            # Convert list of audio chunks to single array
-            wav_out = np.concatenate(audio_list) if isinstance(audio_list, list) else audio_list
-        else:
-            # Original Qwen3TTS API
-            with torch.inference_mode():
-                wavs, sr = self.active_model.generate_voice_design(
-                    text=text, language="English", instruct=description, max_new_tokens=2048
-                )
-                wav_out = wavs[0]
-        
-        # Convert to CPU numpy array
-        if hasattr(wav_out, 'cpu'):
-            wav_cpu = wav_out.cpu().float().numpy()
-        else:
-            wav_cpu = wav_out
-        
-        sf.write(output_path, wav_cpu, sr)
-        return output_path
+            self.log(f"OmniVoice loaded successfully. Sampling rate: {self.model.sampling_rate} Hz")
+            self._log_vram("After Load")
+        except Exception as e:
+            self.log(f"Error loading OmniVoice: {e}")
+            self.log(traceback.format_exc())
+            raise
 
-    def create_voice_clone_preview(self, text, ref_audio_path, output_filename="preview_clone.wav"):
-        self._ensure_model('clone')
-        output_path = os.path.join(self.output_dir, output_filename)
-        ref_text = self._transcribe_audio(ref_audio_path)
-        self.log(f"Cloning voice...")
-        
-        if self.use_faster_qwen:
-            # FasterQwen3TTS API with non_streaming_mode for best performance
-            audio_list, sr = self.active_model.generate_voice_clone(
-                text=text,
-                language="English",
-                ref_audio=ref_audio_path,
-                ref_text=ref_text,
-                max_new_tokens=2048,
-                non_streaming_mode=True,  # Critical for CUDA graph performance
-                xvec_only=True,  # Use x-vector only mode (more compatible)
-            )
-            wav_out = np.concatenate(audio_list) if isinstance(audio_list, list) else audio_list
-        else:
-            # Original Qwen3TTS API
-            with torch.inference_mode():
-                wavs, sr = self.active_model.generate_voice_clone(
-                    text=text, language="English", ref_audio=ref_audio_path, ref_text=ref_text, max_new_tokens=2048
-                )
-                wav_out = wavs[0]
-        
-        # Convert to CPU numpy array
-        if hasattr(wav_out, 'cpu'):
-            wav_cpu = wav_out.cpu().float().numpy()
-        else:
-            wav_cpu = wav_out
-        
-        sf.write(output_path, wav_cpu, sr)
-        return output_path
-
-    def render_book(self, text_file_path, master_voice_path, progress_callback=None, stop_event=None):
-        self._unload_active_model()
-        self._ensure_model('render')
-
-        self.log("Step 1/3: Analyzing Master Voice...")
-        ref_text = self._transcribe_audio(master_voice_path)
-
-        # CRITICAL: Unload Whisper and SYNC
-        if self.whisper_model is not None:
-            del self.whisper_model
-            self.whisper_model = None
+    def _unload_model(self):
+        if self.model is not None:
+            del self.model
+            self.model = None
             gc.collect()
             if self.device == "cuda":
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
-            self.log("Whisper model unloaded to free VRAM")
 
-        voice_prompt = None
-        try:
-             if hasattr(self.active_model, 'create_voice_clone_prompt'):
-                self.log("Optimizing voice embedding...")
-                voice_prompt = self.active_model.create_voice_clone_prompt(ref_audio=master_voice_path, ref_text=ref_text)
-        except Exception as e:
-             self.log(f"Optimization skipped: {e}")
+    # -------------------------------------------------------------------
+    # Voice Design
+    # -------------------------------------------------------------------
+
+    def create_voice_design(self, text, description, output_filename="preview_design.wav"):
+        output_path = os.path.join(self.output_dir, output_filename)
+        self.log(f"Generating Voice Design...")
+
+        audio_list = self.model.generate(
+            text=text,
+            instruct=description,
+            guidance_scale=self.guidance_scale,
+            num_step=self.num_step,
+            class_temperature=self.class_temperature,
+        )
+        wav_out = audio_list[0]
+
+        if hasattr(wav_out, 'cpu'):
+            wav_cpu = wav_out.cpu().float().numpy()
+        else:
+            wav_cpu = wav_out
+
+        sf.write(output_path, wav_cpu, self.model.sampling_rate)
+        return output_path
+
+    # -------------------------------------------------------------------
+    # Voice Clone Preview
+    # -------------------------------------------------------------------
+
+    def create_voice_clone_preview(self, text, ref_audio_path, output_filename="preview_clone.wav"):
+        output_path = os.path.join(self.output_dir, output_filename)
+        self.log(f"Cloning voice...")
+
+        audio_list = self.model.generate(
+            text=text,
+            ref_audio=ref_audio_path,
+            guidance_scale=self.guidance_scale,
+            num_step=self.num_step,
+            class_temperature=self.class_temperature,
+        )
+        wav_out = audio_list[0]
+
+        if hasattr(wav_out, 'cpu'):
+            wav_cpu = wav_out.cpu().float().numpy()
+        else:
+            wav_cpu = wav_out
+
+        sf.write(output_path, wav_cpu, self.model.sampling_rate)
+        return output_path
+
+    # -------------------------------------------------------------------
+    # Book Rendering (TXT file)
+    # -------------------------------------------------------------------
+
+    def render_book(self, text_file_path, master_voice_path, progress_callback=None, stop_event=None):
+        self.log("Step 1/3: Creating voice clone prompt...")
+        voice_prompt = self.model.create_voice_clone_prompt(
+            ref_audio=master_voice_path,
+            ref_text=None,
+        )
 
         self.log("Step 2/3: Reading text...")
         original_book_name = os.path.splitext(os.path.basename(text_file_path))[0]
@@ -561,128 +345,80 @@ class AudioEngine:
         total_chunks = len(chunks)
         self.log(f"Starting render of {total_chunks} chunks.")
 
-        # --- SMART BATCHING ---
         indexed_chunks = [(i, c) for i, c in enumerate(chunks) if c.strip()]
         indexed_chunks.sort(key=lambda x: len(x[1]), reverse=True)
-        
+
         results_cache = {}
         processed_count = 0
-        
-        with torch.inference_mode():
-            for i in range(0, len(indexed_chunks), self.batch_size):
-                if stop_event and stop_event.is_set():
-                    self.log("Render stopped by user.")
-                    return None
 
-                batch_items = indexed_chunks[i : i + self.batch_size]
-                batch_indices = [item[0] for item in batch_items]
-                batch_texts = [item[1] for item in batch_items]
+        for i in range(0, len(indexed_chunks), self.batch_size):
+            if stop_event and stop_event.is_set():
+                self.log("Render stopped by user.")
+                return None
 
-                # --- FIX: Periodic Cleanup (Every 5 batches) ---
-                if i % 5 == 0 and i > 0:
-                    gc.collect()
-                    if self.device == "cuda": 
-                        torch.cuda.empty_cache()
-                        torch.cuda.synchronize()
+            batch_items = indexed_chunks[i:i + self.batch_size]
+            batch_indices = [item[0] for item in batch_items]
+            batch_texts = [item[1] for item in batch_items]
 
-                # VRAM Log
-                if i % 20 == 0: self._log_vram(f"Batch {i//self.batch_size}")
+            if i % 5 == 0 and i > 0:
+                gc.collect()
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
 
-                try:
-                    batch_start = time.time()
-                    
-                    if voice_prompt is not None:
-                        if self.use_faster_qwen:
-                            # FasterQwen3TTS API with non_streaming_mode for best performance
-                            audio_list, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts,
-                                language="English",
-                                voice_clone_prompt=voice_prompt,
-                                max_new_tokens=2048,
-                                temperature=self.temperature,
-                                top_p=self.top_p,
-                                repetition_penalty=self.repetition_penalty,
-                                non_streaming_mode=True,  # Critical for CUDA graph performance
-                            )
-                            # Concatenate audio chunks if list
-                            wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
-                        else:
-                            # Original Qwen3TTS API
-                            wavs, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                                max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
-                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True
-                            )
+            if i % 20 == 0:
+                self._log_vram(f"Batch {i // self.batch_size}")
+
+            try:
+                batch_start = time.time()
+
+                audio_list = self.model.generate(
+                    text=batch_texts,
+                    voice_clone_prompt=voice_prompt,
+                    guidance_scale=self.guidance_scale,
+                    num_step=self.num_step,
+                    class_temperature=self.class_temperature,
+                )
+
+                for idx, wav, orig_idx in zip(range(len(audio_list)), audio_list, batch_indices):
+                    if hasattr(wav, 'cpu'):
+                        wav_np = wav.cpu().float().numpy()
                     else:
-                        if self.use_faster_qwen:
-                            # FasterQwen3TTS API with non_streaming_mode for best performance
-                            audio_list, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts,
-                                language="English",
-                                ref_audio=master_voice_path,
-                                ref_text=ref_text,
-                                max_new_tokens=2048,
-                                temperature=self.temperature,
-                                top_p=self.top_p,
-                                repetition_penalty=self.repetition_penalty,
-                                non_streaming_mode=True,  # Critical for CUDA graph performance
-                            )
-                            wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
-                        else:
-                            # Original Qwen3TTS API
-                            wavs, sr = self.active_model.generate_voice_clone(
-                                text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                                max_new_tokens=2048, temperature=self.temperature, top_p=self.top_p,
-                                repetition_penalty=self.repetition_penalty, non_streaming_mode=True
-                            )
+                        wav_np = wav
 
-                    # --- FIX: Move to CPU *immediately* inside loop ---
-                    wavs_cpu = []
-                    for w in wavs:
-                        if isinstance(w, np.ndarray):
-                            # Already numpy array (FasterQwen3TTS)
-                            wavs_cpu.append(w)
-                        elif hasattr(w, "cpu"):
-                            # Torch tensor (original Qwen3TTS)
-                            wavs_cpu.append(w.cpu().float().numpy())
-                        else:
-                            wavs_cpu.append(w)
-                    del wavs 
+                    voice_sig = os.path.basename(master_voice_path)
+                    chunk_hash = hashlib.md5((chunks[orig_idx] + voice_sig).encode('utf-8')).hexdigest()[:8]
+                    temp_wav = os.path.join(self.temp_dir, f"chunk_{orig_idx:04d}_{chunk_hash}.wav")
+                    sf.write(temp_wav, wav_np, self.model.sampling_rate)
+                    from pydub import AudioSegment
+                    results_cache[orig_idx] = AudioSegment.from_wav(temp_wav)
 
-                    for idx, (wav, original_index) in enumerate(zip(wavs_cpu, batch_indices)):
-                        voice_sig = os.path.basename(master_voice_path)
-                        chunk_hash = hashlib.md5((chunks[original_index] + voice_sig).encode('utf-8')).hexdigest()[:8]
-                        temp_wav = os.path.join(self.temp_dir, f"chunk_{original_index:04d}_{chunk_hash}.wav")
-                        sf.write(temp_wav, wav, sr)
-                        results_cache[original_index] = AudioSegment.from_wav(temp_wav)
-                        
-                    duration = time.time() - batch_start
-                    processed_count += len(batch_items)
-                    speed_per_chunk = duration / len(batch_items)
-                    progress_pct = (processed_count / total_chunks) * 100
-                    
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    
-                    if self.device == "cuda":
-                         reserved = torch.cuda.memory_reserved() / 1024**3
-                         self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk | VRAM: {reserved:.1f}GB")
-                    else:
-                         self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk")
+                duration = time.time() - batch_start
+                processed_count += len(batch_items)
+                speed_per_chunk = duration / len(batch_items)
+                progress_pct = (processed_count / total_chunks) * 100
+                timestamp = datetime.now().strftime("%H:%M:%S")
 
-                    if progress_callback: 
-                        progress_callback(processed_count / total_chunks)
+                if self.device == "cuda":
+                    reserved = torch.cuda.memory_reserved() / 1024**3
+                    self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk | VRAM: {reserved:.1f}GB")
+                else:
+                    self.log(f"[{timestamp}] Done {processed_count}/{total_chunks} ({progress_pct:.0f}%) | {speed_per_chunk:.2f}s/chunk")
 
-                except Exception as e:
-                    self.log(f"Error in batch: {e}")
-                    gc.collect()
-                    if self.device == "cuda": torch.cuda.empty_cache()
-                    continue
+                if progress_callback:
+                    progress_callback(processed_count / total_chunks)
+
+            except Exception as e:
+                self.log(f"Error in batch: {e}")
+                gc.collect()
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+                continue
 
         self.log("Step 3/3: Stitching audio in correct order...")
-        
-        # --- NEW STITCHING LOGIC WITH 250ms BREATH GAP & MICRO-FADES ---
-        silence_gap = AudioSegment.silent(duration=250) # 250ms gap
-        
+        from pydub import AudioSegment
+
+        silence_gap = AudioSegment.silent(duration=250)
         audio_segments = []
         for i in range(total_chunks):
             if i in results_cache:
@@ -691,13 +427,10 @@ class AudioEngine:
                 self.log(f"Warning: Chunk {i} failed to render.")
 
         if audio_segments:
-            # Process first chunk
             final_audio = audio_segments[0].fade_in(50).fade_out(50)
-            
-            # Process subsequent chunks
-            for seg in audio_segments[1:]: 
+            for seg in audio_segments[1:]:
                 processed_seg = seg.fade_in(50).fade_out(50)
-                final_audio += silence_gap + processed_seg 
+                final_audio += silence_gap + processed_seg
 
             out_path = os.path.join(self.output_dir, f"{original_book_name}_audiobook.mp3")
             final_audio.export(out_path, format="mp3")
@@ -707,7 +440,268 @@ class AudioEngine:
         else:
             raise RuntimeError("No audio generated.")
 
-    # ... [Helper functions for Text Extraction] ...
+    # -------------------------------------------------------------------
+    # Manifest-based Rendering (for BookSmith / JSON manifests)
+    # -------------------------------------------------------------------
+
+    def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
+        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event, chunk_size=chunk_size)
+
+    def render_from_manifest(self, json_path, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
+        with open(json_path, 'r', encoding='utf-8') as f:
+            manifest = json.load(f)
+        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event, chunk_size=chunk_size)
+
+    def _render_from_manifest_data(self, manifest, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
+        book_title = manifest.get("title", "Untitled")
+        author = manifest.get("author", "Unknown")
+        chapters_data = manifest.get("chapters", [])
+
+        clean_title = "".join(c for c in book_title if c.isalnum() or c in ' -_').strip()
+        book_output_dir = os.path.join(self.output_dir, clean_title)
+        os.makedirs(book_output_dir, exist_ok=True)
+
+        self.log("Creating voice clone prompt...")
+        voice_prompt = self.model.create_voice_clone_prompt(
+            ref_audio=master_voice_path,
+            ref_text=None,
+        )
+
+        chapter_audio_files = []
+        chapters_info = []
+
+        for chapter_idx, chapter in enumerate(chapters_data):
+            if stop_event and stop_event.is_set():
+                return None
+
+            label = chapter.get("label", f"Chapter {chapter_idx + 1}")
+            text = chapter.get("text", "")
+            self.log(f"Rendering: {label}")
+
+            use_chunk_size = chunk_size if chunk_size is not None else self.chunk_size
+            chunks = self._chunk_text(text, max_chars=use_chunk_size)
+
+            indexed_chunks = [(i, c) for i, c in enumerate(chunks) if c.strip()]
+            indexed_chunks.sort(key=lambda x: len(x[1]), reverse=True)
+
+            results_cache = {}
+            processed_count = 0
+
+            for i in range(0, len(indexed_chunks), self.batch_size):
+                if stop_event and stop_event.is_set():
+                    return None
+
+                batch_items = indexed_chunks[i:i + self.batch_size]
+                batch_indices = [x[0] for x in batch_items]
+                batch_texts = [x[1] for x in batch_items]
+
+                if i % 5 == 0 and i > 0:
+                    gc.collect()
+                    if self.device == "cuda":
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+
+                try:
+                    batch_start = time.time()
+
+                    audio_list = self.model.generate(
+                        text=batch_texts,
+                        voice_clone_prompt=voice_prompt,
+                        guidance_scale=self.guidance_scale,
+                        num_step=self.num_step,
+                        class_temperature=self.class_temperature,
+                    )
+
+                    from pydub import AudioSegment
+                    for wav, idx in zip(audio_list, batch_indices):
+                        if hasattr(wav, 'cpu'):
+                            wav_np = wav.cpu().float().numpy()
+                        else:
+                            wav_np = wav
+
+                        temp_wav = os.path.join(self.temp_dir, f"tmp_{chapter_idx}_{idx}.wav")
+                        sf.write(temp_wav, wav_np, self.model.sampling_rate)
+                        results_cache[idx] = AudioSegment.from_wav(temp_wav)
+                        os.unlink(temp_wav)
+
+                    duration = time.time() - batch_start
+                    processed_count += len(batch_items)
+                    speed = duration / len(batch_items)
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+
+                    if self.device == "cuda":
+                        reserved = torch.cuda.memory_reserved() / 1024**3
+                        self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk | VRAM: {reserved:.1f}GB")
+                    else:
+                        self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk")
+
+                except Exception as e:
+                    self.log(f"Batch error: {e}")
+                    gc.collect()
+                    continue
+
+            from pydub import AudioSegment
+            audio_segments = []
+            for i in range(len(chunks)):
+                if i in results_cache:
+                    audio_segments.append(results_cache[i])
+
+            if audio_segments:
+                silence_gap = AudioSegment.silent(duration=250)
+                final = audio_segments[0].fade_in(50).fade_out(50)
+                for s in audio_segments[1:]:
+                    processed_seg = s.fade_in(50).fade_out(50)
+                    final += silence_gap + processed_seg
+
+                fname = f"{chapter.get('id', chapter_idx + 1):02d}_{label}".replace(" ", "_") + ".wav"
+                out_path = os.path.join(book_output_dir, fname)
+                final.export(out_path, format="wav")
+                chapter_audio_files.append(out_path)
+                chapters_info.append({'title': label})
+
+                if progress_callback:
+                    progress_callback((chapter_idx + 1) / len(chapters_data))
+
+            self.log(f"Chapter {chapter_idx + 1} complete. Performing memory cleanup...")
+            del results_cache
+            del audio_segments
+            gc.collect()
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+
+        if chapter_audio_files:
+            clean_author = "".join(c for c in author if c.isalnum() or c in ' -_').strip()
+            filename = f"{clean_title} - {clean_author}.m4b" if clean_author else f"{clean_title}.m4b"
+            m4b_path = os.path.join(book_output_dir, filename)
+
+            self._create_m4b_with_chapters(chapter_audio_files, chapters_info, m4b_path, book_title=book_title, artist=author)
+
+            self.log("Cleaning up intermediate chapter files...")
+            for fname in os.listdir(book_output_dir):
+                if fname.endswith(".wav") or (not fname.endswith(".m4b") and not fname.endswith(".json")):
+                    try:
+                        full_path = os.path.join(book_output_dir, fname)
+                        if os.path.isfile(full_path):
+                            os.unlink(full_path)
+                    except Exception:
+                        pass
+
+            return m4b_path
+        else:
+            raise RuntimeError("No audio generated")
+
+    # -------------------------------------------------------------------
+    # Helpers
+    # -------------------------------------------------------------------
+
+    def _clear_temp_dir(self):
+        try:
+            for f in os.listdir(self.temp_dir):
+                fp = os.path.join(self.temp_dir, f)
+                if os.path.isfile(fp):
+                    os.unlink(fp)
+                elif os.path.isdir(fp):
+                    shutil.rmtree(fp)
+        except Exception:
+            pass
+
+    def clear_converted_files(self):
+        self._clear_temp_dir()
+
+    def _chunk_text(self, text, max_chars=None):
+        import re
+        if max_chars is None:
+            max_chars = self.chunk_size
+        sentences = re.split(r'(?<=[.?!])\s+', text)
+        chunks = []
+        curr = ""
+        for s in sentences:
+            if len(s) > max_chars:
+                if curr:
+                    chunks.append(curr.strip())
+                    curr = ""
+                words = s.split()
+                temp = ""
+                for word in words:
+                    if len(temp) + len(word) + 1 < max_chars:
+                        temp += word + " "
+                    else:
+                        chunks.append(temp.strip())
+                        temp = word + " "
+                if temp:
+                    chunks.append(temp.strip())
+            elif len(curr) + len(s) < max_chars:
+                curr += s + " "
+            else:
+                chunks.append(curr.strip())
+                curr = s + " "
+        if curr:
+            chunks.append(curr.strip())
+        return chunks
+
+    def _create_m4b_with_chapters(self, chapter_audio_files, chapters_info, output_path, book_title=None, artist=None):
+        from pydub import AudioSegment
+        try:
+            concat_file = os.path.join(self.temp_dir, "concat_list.txt")
+            with open(concat_file, 'w', encoding='utf-8') as f:
+                for audio_file in chapter_audio_files:
+                    safe_path = audio_file.replace('\\', '/').replace("'", "'\\''")
+                    f.write(f"file '{safe_path}'\n")
+
+            updated_chapters_info = []
+            cumulative_ms = 0
+            for f, c in zip(chapter_audio_files, chapters_info):
+                dur = len(AudioSegment.from_wav(f))
+                updated_chapters_info.append({'title': c['title'], 'start_ms': cumulative_ms, 'end_ms': cumulative_ms + dur})
+                cumulative_ms += dur
+
+            metadata_file = os.path.join(self.temp_dir, "ffmetadata.txt")
+            with open(metadata_file, 'w', encoding='utf-8') as f:
+                f.write(self._generate_ffmetadata(updated_chapters_info, book_title=book_title, artist=artist))
+
+            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_file, '-i', metadata_file,
+                   '-map_metadata', '1', '-map', '0:a', '-c:a', 'aac', '-b:a', '64k', '-y', output_path]
+
+            process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+            if process.returncode != 0:
+                self.log(f"FFMPEG Error Output:\n{process.stderr}")
+                raise RuntimeError("FFMPEG failed to stitch audiobook")
+
+            return output_path
+        except Exception as e:
+            self.log(f"FFMPEG Error: {e}")
+            raise
+
+    def _generate_ffmetadata(self, chapters_info, book_title=None, artist=None):
+        def escape_metadata(value):
+            if not value:
+                return ""
+            value = str(value).replace('\\', '\\\\').replace('=', '\\=').replace(';', '\\;').replace('#', '\\#')
+            return value
+
+        lines = [";FFMETADATA1"]
+        if book_title:
+            lines.append(f"title={escape_metadata(book_title)}")
+        if artist:
+            lines.append(f"artist={escape_metadata(artist)}")
+        lines.append("")
+        for i, chapter in enumerate(chapters_info):
+            lines.append("[CHAPTER]")
+            lines.append("TIMEBASE=1/1000")
+            lines.append(f"START={chapter['start_ms']}")
+            end = chapter['end_ms'] if 'end_ms' in chapter else (
+                chapters_info[i + 1]['start_ms'] if i + 1 < len(chapters_info) else chapter['start_ms'] + 1000
+            )
+            lines.append(f"END={end}")
+            lines.append(f"title={escape_metadata(chapter['title'])}")
+            lines.append("")
+        return "\n".join(lines)
+
+    # -------------------------------------------------------------------
+    # Text Extraction (EPUB / PDF)
+    # -------------------------------------------------------------------
+
     def _extract_text_from_epub(self, epub_path):
         import ebooklib
         from ebooklib import epub
@@ -720,17 +714,21 @@ class AudioEngine:
         for item in book.get_items():
             if item.get_type() == ebooklib.ITEM_DOCUMENT:
                 item_name = item.get_name().lower()
-                if any(keyword in item_name for keyword in skip_keywords): continue
+                if any(keyword in item_name for keyword in skip_keywords):
+                    continue
                 content = item.get_content()
                 soup = BeautifulSoup(content, 'html.parser')
-                for tag in soup.find_all(['sup', 'sub', 'script', 'style']): tag.decompose()
-                for tag in soup.find_all(['p', 'div', 'br']): tag.append('\n')
+                for tag in soup.find_all(['sup', 'sub', 'script', 'style']):
+                    tag.decompose()
+                for tag in soup.find_all(['p', 'div', 'br']):
+                    tag.append('\n')
                 text = soup.get_text(separator=' ')
                 text = html.unescape(text)
                 lines = [re.sub(r'\s+', ' ', line).strip() for line in text.splitlines() if line.strip()]
                 text = '\n\n'.join(lines)
                 text = re.sub(r'\n{3,}', '\n\n', text)
-                if text.strip(): full_text.append(text)
+                if text.strip():
+                    full_text.append(text)
         return self._skip_front_matter(self._sanitize_text_for_tts("\n\n".join(full_text)))
 
     def _extract_text_from_pdf(self, pdf_path):
@@ -757,9 +755,11 @@ class AudioEngine:
             if is_num and len(s) <= 4:
                 consecutive_nums += 1
                 continue
-            if consecutive_nums > 0 and consecutive_nums < 5: consecutive_nums = 0
+            if consecutive_nums > 0 and consecutive_nums < 5:
+                consecutive_nums = 0
             if i < 100:
-                if any(re.match(p, s, re.IGNORECASE) for p in [r'^Contents$', r'^Cover$', r'^Title Page$', r'^Copyright$']): continue
+                if any(re.match(p, s, re.IGNORECASE) for p in [r'^Contents$', r'^Cover$', r'^Title Page$', r'^Copyright$']):
+                    continue
             filtered.append(line)
         return '\n'.join(filtered)
 
@@ -774,30 +774,38 @@ class AudioEngine:
             spine_items = [book.get_item_with_id(item_id) for item_id, _ in book.spine]
             for item in spine_items:
                 if item and item.get_type() == ebooklib.ITEM_DOCUMENT:
-                    if any(k in item.get_name().lower() for k in ['toc', 'copyright', 'cover']): continue
+                    if any(k in item.get_name().lower() for k in ['toc', 'copyright', 'cover']):
+                        continue
                     soup = BeautifulSoup(item.get_content(), 'html.parser')
                     title = soup.find(['h1', 'h2'])
-                    title = title.get_text().strip() if title else f"Chapter {len(chapters)+1}"
+                    title = title.get_text().strip() if title else f"Chapter {len(chapters) + 1}"
                     text = self._sanitize_text_for_tts(html.unescape(soup.get_text(separator=' ')))
-                    if len(text) > 100: chapters.append({'title': title, 'text': text})
+                    if len(text) > 100:
+                        chapters.append({'title': title, 'text': text})
             return chapters
-        except: return None
+        except Exception:
+            return None
 
     def _extract_chapters_from_pdf(self, pdf_path):
         try:
             from PyPDF2 import PdfReader
             reader = PdfReader(pdf_path)
-            if not reader.outline: return None
+            if not reader.outline:
+                return None
             chapters = []
             def extract(items):
                 for item in items:
-                    if isinstance(item, list): extract(item)
+                    if isinstance(item, list):
+                        extract(item)
                     else:
-                        try: chapters.append({'title': item.title, 'page': reader.get_destination_page_number(item)})
-                        except: pass
+                        try:
+                            chapters.append({'title': item.title, 'page': reader.get_destination_page_number(item)})
+                        except Exception:
+                            pass
             extract(reader.outline)
             return chapters
-        except: return None
+        except Exception:
+            return None
 
     def _extract_text_for_pdf_chapter(self, reader, start_page, end_page):
         import re
@@ -805,7 +813,8 @@ class AudioEngine:
         for p in range(start_page, end_page):
             if p < len(reader.pages):
                 text = reader.pages[p].extract_text()
-                if text.strip(): full_text.append(text)
+                if text.strip():
+                    full_text.append(text)
         return self._sanitize_text_for_tts("\n\n".join(full_text))
 
     def _sanitize_text_for_tts(self, text):
@@ -816,306 +825,3 @@ class AudioEngine:
         text = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', text)
         text = re.sub(r'[ \t]+', ' ', text)
         return re.sub(r'\n{3,}', '\n\n', text).strip()
-
-    def render_from_manifest_dict(self, manifest, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
-        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event, chunk_size=chunk_size)
-
-    def render_from_manifest(self, json_path, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
-        with open(json_path, 'r', encoding='utf-8') as f: manifest = json.load(f)
-        return self._render_from_manifest_data(manifest, master_voice_path, progress_callback, stop_event, chunk_size=chunk_size)
-
-    def _render_from_manifest_data(self, manifest, master_voice_path, progress_callback=None, stop_event=None, chunk_size=None):
-        self._unload_active_model()
-        self._ensure_model('render')
-        
-        book_title = manifest.get("title", "Untitled")
-        author = manifest.get("author", "Unknown") # Get author for filename
-        chapters_data = manifest.get("chapters", [])
-        
-        # Clean folder name
-        book_output_dir = os.path.join(self.output_dir, "".join(c for c in book_title if c.isalnum() or c in ' -_').strip())
-        os.makedirs(book_output_dir, exist_ok=True)
-
-        ref_text = self._transcribe_audio(master_voice_path)
-        
-        # CRITICAL: Unload Whisper and SYNC
-        if self.whisper_model is not None:
-            del self.whisper_model
-            self.whisper_model = None
-            gc.collect()
-            if self.device == "cuda":
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
-            self.log("Whisper model unloaded to free VRAM")
-
-        voice_prompt = None
-        try:
-            if hasattr(self.active_model, 'create_voice_clone_prompt'):
-                voice_prompt = self.active_model.create_voice_clone_prompt(ref_audio=master_voice_path, ref_text=ref_text)
-        except: pass
-
-        chapter_audio_files = []
-        chapters_info = []
-        
-        # AUDIT: Cap tokens to prevent loops
-        MAX_TOKENS = 2048
-
-        for chapter_idx, chapter in enumerate(chapters_data):
-            if stop_event and stop_event.is_set(): return None
-            
-            label = chapter.get("label", f"Chapter {chapter_idx+1}")
-            text = chapter.get("text", "")
-            style = chapter.get("style_prompt", "")
-            self.log(f"Rendering: {label}")
-
-            # USE DYNAMIC CHUNK SIZE IF PROVIDED
-            use_chunk_size = chunk_size if chunk_size is not None else self.chunk_size
-            chunks = self._chunk_text(text, max_chars=use_chunk_size)
-            
-            # Smart Batching
-            indexed_chunks = [(i, (f"{style}\n\n{c}" if style else c)) for i, c in enumerate(chunks) if c.strip()]
-            indexed_chunks.sort(key=lambda x: len(x[1]), reverse=True)
-            
-            results_cache = {}
-            processed_count = 0
-            
-            with torch.inference_mode():
-                for i in range(0, len(indexed_chunks), self.batch_size):
-                    if stop_event and stop_event.is_set(): return None
-                    
-                    batch_items = indexed_chunks[i : i+self.batch_size]
-                    batch_indices = [x[0] for x in batch_items]
-                    batch_texts = [x[1] for x in batch_items]
-
-                    # --- FIX: Periodic Cleanup (Every 5 batches) ---
-                    if i % 5 == 0 and i > 0:
-                        gc.collect()
-                        if self.device == "cuda": 
-                            torch.cuda.empty_cache()
-                            torch.cuda.synchronize()
-
-                    try:
-                        batch_start = time.time()
-                        if voice_prompt:
-                            if self.use_faster_qwen:
-                                # FasterQwen3TTS API with non_streaming_mode for best performance
-                                audio_list, sr = self.active_model.generate_voice_clone(
-                                    text=batch_texts,
-                                    language="English",
-                                    voice_clone_prompt=voice_prompt,
-                                    max_new_tokens=MAX_TOKENS,
-                                    temperature=self.temperature,
-                                    top_p=self.top_p,
-                                    repetition_penalty=self.repetition_penalty,
-                                    non_streaming_mode=True,  # Critical for CUDA graph performance
-                                )
-                                wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
-                            else:
-                                # Original Qwen3TTS API
-                                wavs, sr = self.active_model.generate_voice_clone(
-                                    text=batch_texts, language="English", voice_clone_prompt=voice_prompt,
-                                    max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
-                                    repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
-                        else:
-                            if self.use_faster_qwen:
-                                # FasterQwen3TTS API with non_streaming_mode for best performance
-                                audio_list, sr = self.active_model.generate_voice_clone(
-                                    text=batch_texts,
-                                    language="English",
-                                    ref_audio=master_voice_path,
-                                    ref_text=ref_text,
-                                    max_new_tokens=MAX_TOKENS,
-                                    temperature=self.temperature,
-                                    top_p=self.top_p,
-                                    repetition_penalty=self.repetition_penalty,
-                                    non_streaming_mode=True,  # Critical for CUDA graph performance
-                                )
-                                wavs = [audio_list] if not isinstance(audio_list, list) else audio_list
-                            else:
-                                # Original Qwen3TTS API
-                                wavs, sr = self.active_model.generate_voice_clone(
-                                    text=batch_texts, language="English", ref_audio=master_voice_path, ref_text=ref_text,
-                                    max_new_tokens=MAX_TOKENS, temperature=self.temperature, top_p=self.top_p, 
-                                    repetition_penalty=self.repetition_penalty, non_streaming_mode=True)
-                        
-                        # --- FIX: Move to CPU *immediately* ---
-                        wavs_cpu = []
-                        for w in wavs:
-                            if isinstance(w, np.ndarray):
-                                # Already numpy array (FasterQwen3TTS)
-                                wavs_cpu.append(w)
-                            elif hasattr(w, "cpu"):
-                                # Torch tensor (original Qwen3TTS)
-                                wavs_cpu.append(w.cpu().float().numpy())
-                            else:
-                                wavs_cpu.append(w)
-                        del wavs
-
-                        for wav, idx in zip(wavs_cpu, batch_indices):
-                            temp_wav = os.path.join(self.temp_dir, f"tmp_{chapter_idx}_{idx}.wav")
-                            sf.write(temp_wav, wav, sr)
-                            results_cache[idx] = AudioSegment.from_wav(temp_wav)
-                            os.unlink(temp_wav)
-
-                        # --- DETAILED LOGGING ---
-                        duration = time.time() - batch_start
-                        processed_count += len(batch_items)
-                        speed = duration / len(batch_items)
-                        
-                        timestamp = datetime.now().strftime("%H:%M:%S")
-                        if self.device == "cuda":
-                            # CHANGED TO MEMORY_RESERVED to match Task Manager
-                            reserved = torch.cuda.memory_reserved() / 1024**3
-                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk | VRAM: {reserved:.1f}GB")
-                        else:
-                            self.log(f"[{timestamp}] Done {processed_count}/{len(chunks)} | {speed:.2f}s/chunk")
-                            
-                    except Exception as e:
-                        self.log(f"Batch error: {e}")
-                        gc.collect()
-                        continue
-
-            audio_segments = []
-            for i in range(len(chunks)):
-                if i in results_cache: audio_segments.append(results_cache[i])
-
-            if audio_segments:
-                # --- NEW STITCHING LOGIC WITH 250ms BREATH GAP & MICRO-FADES (MANIFEST MODE) ---
-                silence_gap = AudioSegment.silent(duration=250) # 250ms gap
-                
-                # Process first chunk
-                final = audio_segments[0].fade_in(50).fade_out(50)
-                
-                # Process subsequent chunks
-                for s in audio_segments[1:]: 
-                    processed_seg = s.fade_in(50).fade_out(50)
-                    final += silence_gap + processed_seg
-                
-                fname = f"{chapter.get('id', chapter_idx+1):02d}_{label}".replace(" ", "_") + ".wav"
-                out_path = os.path.join(book_output_dir, fname)
-                final.export(out_path, format="wav")
-                chapter_audio_files.append(out_path)
-                chapters_info.append({'title': label})
-                
-                if progress_callback: progress_callback((chapter_idx+1)/len(chapters_data))
-            
-            # --- FIX: HARD MEMORY RESET BETWEEN CHAPTERS ---
-            self.log(f"Chapter {chapter_idx+1} complete. Performing hard memory reset...")
-            del results_cache
-            del audio_segments
-            gc.collect()
-            if self.device == "cuda":
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
-
-        if chapter_audio_files:
-            # FIX: Filename now includes Author
-            clean_title = "".join(c for c in book_title if c.isalnum() or c in ' -_').strip()
-            clean_author = "".join(c for c in author if c.isalnum() or c in ' -_').strip()
-            filename = f"{clean_title} - {clean_author}.m4b" if clean_author else f"{clean_title}.m4b"
-            m4b_path = os.path.join(book_output_dir, filename)
-            
-            self._create_m4b_with_chapters(chapter_audio_files, chapters_info, m4b_path, book_title=book_title, artist=author)
-            
-            # --- AGGRESSIVE CLEANUP: Wipes ALL .wav files in output folder ---
-            self.log("Cleaning up intermediate chapter files...")
-            for filename in os.listdir(book_output_dir):
-                if filename.endswith(".wav") or (not filename.endswith(".m4b") and not filename.endswith(".json")):
-                    try:
-                        full_path = os.path.join(book_output_dir, filename)
-                        if os.path.isfile(full_path):
-                            os.unlink(full_path)
-                    except: pass
-                
-            return m4b_path
-        else:
-            raise RuntimeError("No audio generated")
-
-    def _clear_temp_dir(self):
-        try:
-            for f in os.listdir(self.temp_dir):
-                fp = os.path.join(self.temp_dir, f)
-                if os.path.isfile(fp): os.unlink(fp)
-                elif os.path.isdir(fp): shutil.rmtree(fp)
-        except: pass
-    
-    def clear_converted_files(self):
-        self._clear_temp_dir()
-
-    # --- RESTORED HELPER FUNCTION 1 ---
-    def _chunk_text(self, text, max_chars=None):
-        if max_chars is None: max_chars = self.chunk_size
-        sentences = re.split(r'(?<=[.?!])\s+', text)
-        chunks = []
-        curr = ""
-        for s in sentences:
-            if len(s) > max_chars:
-                if curr: chunks.append(curr.strip()); curr = ""
-                words = s.split()
-                temp = ""
-                for word in words:
-                    if len(temp) + len(word) + 1 < max_chars: temp += word + " "
-                    else: chunks.append(temp.strip()); temp = word + " "
-                if temp: chunks.append(temp.strip())
-            elif len(curr) + len(s) < max_chars: curr += s + " "
-            else: chunks.append(curr.strip()); curr = s + " "
-        if curr: chunks.append(curr.strip())
-        return chunks
-
-    # --- RESTORED HELPER FUNCTION 2 ---
-    def _create_m4b_with_chapters(self, chapter_audio_files, chapters_info, output_path, book_title=None, artist=None):
-        try:
-            concat_file = os.path.join(self.temp_dir, "concat_list.txt")
-            with open(concat_file, 'w', encoding='utf-8') as f:
-                for audio_file in chapter_audio_files:
-                    # FIX: Force forward slashes for FFMPEG compatibility on Windows
-                    safe_path = audio_file.replace('\\', '/').replace("'", "'\\''")
-                    f.write(f"file '{safe_path}'\n")
-
-            updated_chapters_info = []
-            cumulative_ms = 0
-            for i, (f, c) in enumerate(zip(chapter_audio_files, chapters_info)):
-                dur = len(AudioSegment.from_wav(f))
-                updated_chapters_info.append({'title': c['title'], 'start_ms': cumulative_ms, 'end_ms': cumulative_ms + dur})
-                cumulative_ms += dur
-
-            metadata_file = os.path.join(self.temp_dir, "ffmetadata.txt")
-            with open(metadata_file, 'w', encoding='utf-8') as f:
-                f.write(self._generate_ffmetadata(updated_chapters_info, book_title=book_title, artist=artist))
-
-            # FIX: Ensure metadata file is used properly with -map_metadata 1
-            cmd = ['ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_file, '-i', metadata_file,
-                   '-map_metadata', '1', '-map', '0:a', '-c:a', 'aac', '-b:a', '64k', '-y', output_path]
-            
-            # --- UPDATED: Added logging for FFMPEG errors ---
-            process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
-            if process.returncode != 0:
-                self.log(f"FFMPEG Error Output:\n{process.stderr}")
-                raise RuntimeError("FFMPEG failed to stitch audiobook")
-                
-            return output_path
-        except Exception as e:
-            self.log(f"FFMPEG Error: {e}")
-            raise
-
-    # --- RESTORED HELPER FUNCTION 3 ---
-    def _generate_ffmetadata(self, chapters_info, book_title=None, artist=None):
-        def escape_metadata(value):
-            if not value: return ""
-            # Escape: = ; # \ and newline
-            value = str(value).replace('\\', '\\\\').replace('=', '\\=').replace(';', '\\;').replace('#', '\\#')
-            return value
-
-        lines = [";FFMETADATA1"]
-        if book_title: lines.append(f"title={escape_metadata(book_title)}")
-        if artist: lines.append(f"artist={escape_metadata(artist)}")
-        lines.append("")
-        for i, chapter in enumerate(chapters_info):
-            lines.append("[CHAPTER]")
-            lines.append("TIMEBASE=1/1000")
-            lines.append(f"START={chapter['start_ms']}")
-            end = chapter['end_ms'] if 'end_ms' in chapter else (chapters_info[i+1]['start_ms'] if i+1 < len(chapters_info) else chapter['start_ms'] + 1000)
-            lines.append(f"END={end}")
-            lines.append(f"title={escape_metadata(chapter['title'])}")
-            lines.append("")
-        return "\n".join(lines)

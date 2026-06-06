@@ -54,67 +54,48 @@ class Vox1App(ctk.CTk):
                 with open(self.settings_file, 'r') as f: return json.load(f)
         except: pass
         return {
-            "model_size": "0.6B",
             "last_voice": None,
             "batch_size": 2,
             "chunk_size": 500,
-            "temperature": 0.7,
-            "top_p": 0.8,
-            "top_k": 20,
-            "repetition_penalty": 1.05,
+            "guidance_scale": 2.0,
+            "num_step": 32,
             "show_vram": True,
             "show_timing": True,
             "debug_mode": False,
             "smart_import": True,
-            "attn_implementation": "sdpa"  # Default for FasterQwen3TTS
         }
 
     def _save_settings(self):
         try:
-            self.settings["model_size"] = self.model_size_var.get()
             self.settings["last_voice"] = self.master_voice_path
-            # Save advanced settings if they exist
             if hasattr(self, 'batch_size_var'):
                 self.settings["batch_size"] = int(self.batch_size_var.get())
             if hasattr(self, 'chunk_size_var'):
                 self.settings["chunk_size"] = int(self.chunk_size_var.get())
-            if hasattr(self, 'temperature_var'):
-                self.settings["temperature"] = float(self.temperature_var.get())
-            if hasattr(self, 'repetition_penalty_var'):
-                self.settings["repetition_penalty"] = float(self.repetition_penalty_var.get())
+            if hasattr(self, 'guidance_scale_var'):
+                self.settings["guidance_scale"] = float(self.guidance_scale_var.get())
+            if hasattr(self, 'num_step_var'):
+                self.settings["num_step"] = int(self.num_step_var.get())
             if hasattr(self, 'show_vram_var'):
                 self.settings["show_vram"] = self.show_vram_var.get()
             if hasattr(self, 'show_timing_var'):
                 self.settings["show_timing"] = self.show_timing_var.get()
             if hasattr(self, 'debug_mode_var'):
                 self.settings["debug_mode"] = self.debug_mode_var.get()
-            # Save Smart Import setting
             if hasattr(self, 'smart_import_var'):
                 self.settings["smart_import"] = self.smart_import_var.get()
-            # Save Attention Implementation setting
-            if hasattr(self, 'attn_implementation_var'):
-                self.settings["attn_implementation"] = self.attn_implementation_var.get()
             with open(self.settings_file, 'w') as f: json.dump(self.settings, f, indent=2)
         except: pass
 
     def _init_from_settings(self):
-        # Restore model selection
-        saved_size = self.settings.get("model_size", "0.6B")
-        if saved_size == "1.7B":
-            self.model_size_var.set("1.7B (High Quality)")
-            self._start_engine_thread("1.7B")
-        else:
-            self.model_size_var.set("0.6B (Fastest)")
-            self._start_engine_thread("0.6B")
+        self._start_engine_thread()
 
-        # Restore last voice
         last_voice = self.settings.get("last_voice")
         if last_voice and os.path.exists(last_voice):
             self.master_voice_path = last_voice
             self.studio_status.configure(text="Master Voice: LOADED", text_color="green")
             self.log(f"Restored previous voice: {os.path.basename(last_voice)}")
 
-        # Restore Smart Import setting
         smart_import_enabled = self.settings.get("smart_import", True)
         self.smart_import_var.set(smart_import_enabled)
         self.studio_smart_import_var.set(smart_import_enabled)
@@ -126,14 +107,6 @@ class Vox1App(ctk.CTk):
         
         self.header_label = ctk.CTkLabel(self.header_frame, text="Vox-1 // AI Audio Engine", font=("Roboto", 20, "bold"))
         self.header_label.pack(side="left", padx=20, pady=10)
-        
-        # Model Selector
-        self.model_size_var = ctk.StringVar(value="0.6B (Fastest)")
-        self.model_selector = ctk.CTkOptionMenu(self.header_frame, values=["0.6B (Fastest)", "1.7B (High Quality)"],
-                                                command=self._on_model_change, width=180)
-        self.model_selector.pack(side="right", padx=20, pady=10)
-        self.model_label = ctk.CTkLabel(self.header_frame, text="Model Size:", font=("Roboto", 12))
-        self.model_label.pack(side="right", padx=5)
         
         # Tabs
         self.tab_view = ctk.CTkTabview(self)
@@ -164,7 +137,7 @@ class Vox1App(ctk.CTk):
         self.log_box.configure(state="disabled")
         
         # Status Bar
-        self.status_bar = ctk.CTkLabel(self, text="Waiting for model selection...", anchor="w")
+        self.status_bar = ctk.CTkLabel(self, text="Loading OmniVoice engine...", anchor="w")
         self.status_bar.grid(row=3, column=0, sticky="ew", padx=20, pady=5)
 
     def log(self, message):
@@ -177,9 +150,14 @@ class Vox1App(ctk.CTk):
 
     def _setup_lab_tab(self):
         self.tab_lab.grid_columnconfigure(0, weight=1)
-        self.tab_lab.grid_rowconfigure(1, weight=1)
+        self.tab_lab.grid_rowconfigure(0, weight=1)
         
-        self.mode_frame = ctk.CTkFrame(self.tab_lab)
+        # Main scrollable container - ensures all content is always reachable
+        self.lab_scroll = ctk.CTkScrollableFrame(self.tab_lab)
+        self.lab_scroll.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        self.lab_scroll.grid_columnconfigure(0, weight=1)
+        
+        self.mode_frame = ctk.CTkFrame(self.lab_scroll)
         self.mode_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         
         self.mode_var = ctk.StringVar(value="design")
@@ -188,37 +166,67 @@ class Vox1App(ctk.CTk):
         self.radio_clone = ctk.CTkRadioButton(self.mode_frame, text="Clone Voice", variable=self.mode_var, value="clone", command=self._update_lab_mode)
         self.radio_clone.pack(side="left", padx=20, pady=10)
         
-        self.input_frame = ctk.CTkFrame(self.tab_lab)
-        self.input_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
-        self.input_frame.grid_columnconfigure(0, weight=1)
+        # --- Design Voice section ---
+        self.design_frame = ctk.CTkFrame(self.lab_scroll)
+        self.design_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        self.design_frame.grid_columnconfigure(0, weight=1)
         
-        self.desc_label = ctk.CTkLabel(self.input_frame, text="Description:", anchor="w")
+        self.desc_label = ctk.CTkLabel(self.design_frame, text="Voice Attributes (comma-separated):", anchor="w")
         self.desc_label.grid(row=0, column=0, sticky="w", padx=10, pady=(10,0))
-        self.desc_entry = ctk.CTkTextbox(self.input_frame, height=80)
+        self.desc_entry = ctk.CTkTextbox(self.design_frame, height=50)
         self.desc_entry.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
-        self.desc_entry.insert("0.0", "A deep, soothing male voice.")
+        self.desc_entry.insert("0.0", "male, moderate pitch, american accent")
+
+        # Compact valid attributes info (clickable expandable area)
+        self.attr_info = ctk.CTkLabel(
+            self.design_frame,
+            text=("Valid: male/female | child/teenager/young adult/middle-aged/elderly | "
+                   "very low/low/moderate/high/very high pitch | whisper | "
+                   "american/british/australian/canadian/indian/etc. accent"),
+            font=("Roboto", 10),
+            text_color="gray",
+            anchor="w",
+            justify="left",
+            wraplength=700
+        )
+        self.attr_info.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 8))
         
-        self.file_label = ctk.CTkLabel(self.input_frame, text="Reference Audio:", anchor="w")
-        self.file_btn = ctk.CTkButton(self.input_frame, text="Choose File...", command=self._choose_ref_file)
-        self.ref_file_path_label = ctk.CTkLabel(self.input_frame, text="No file selected", text_color="gray")
+        # --- Clone Voice section ---
+        self.clone_frame = ctk.CTkFrame(self.lab_scroll)
+        self.clone_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
+        self.clone_frame.grid_columnconfigure(0, weight=1)
+        
+        self.file_label = ctk.CTkLabel(self.clone_frame, text="Reference Audio:", anchor="w")
+        self.file_label.grid(row=0, column=0, sticky="w", padx=10, pady=(10,0))
+        self.file_btn = ctk.CTkButton(self.clone_frame, text="Choose File...", command=self._choose_ref_file)
+        self.file_btn.grid(row=1, column=0, sticky="w", padx=10, pady=5)
+        self.ref_file_path_label = ctk.CTkLabel(self.clone_frame, text="No file selected", text_color="gray")
+        self.ref_file_path_label.grid(row=2, column=0, sticky="w", padx=10, pady=5)
 
         # Smart Import checkbox for Lab tab
         self.smart_import_var = ctk.BooleanVar(value=True)  # Default ON
         self.smart_import_checkbox = ctk.CTkCheckBox(
-            self.input_frame,
+            self.clone_frame,
             text="Smart Import (auto-optimize audio)",
             variable=self.smart_import_var,
             font=("Arial", 12)
         )
-
-        self.preview_text_label = ctk.CTkLabel(self.input_frame, text="Preview Text:", anchor="w")
-        self.preview_text_label.grid(row=4, column=0, sticky="w", padx=10, pady=(10,0))
-        self.preview_entry = ctk.CTkEntry(self.input_frame)
-        self.preview_entry.grid(row=5, column=0, sticky="ew", padx=10, pady=5)
+        self.smart_import_checkbox.grid(row=3, column=0, sticky="w", padx=10, pady=(5, 10))
+        
+        # --- Preview section (always visible) ---
+        self.preview_frame = ctk.CTkFrame(self.lab_scroll)
+        self.preview_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
+        self.preview_frame.grid_columnconfigure(0, weight=1)
+        
+        self.preview_text_label = ctk.CTkLabel(self.preview_frame, text="Preview Text:", anchor="w")
+        self.preview_text_label.grid(row=0, column=0, sticky="w", padx=10, pady=(10,0))
+        self.preview_entry = ctk.CTkEntry(self.preview_frame)
+        self.preview_entry.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
         self.preview_entry.insert(0, "This is a test of the voice generation system.")
         
-        self.action_frame = ctk.CTkFrame(self.tab_lab, fg_color="transparent")
-        self.action_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        # --- Action buttons ---
+        self.action_frame = ctk.CTkFrame(self.lab_scroll, fg_color="transparent")
+        self.action_frame.grid(row=4, column=0, sticky="ew", padx=10, pady=10)
         
         self.gen_btn = ctk.CTkButton(self.action_frame, text="Generate Preview", command=self._generate_preview, state="disabled")
         self.gen_btn.pack(side="left", padx=5)
@@ -226,6 +234,9 @@ class Vox1App(ctk.CTk):
         self.play_btn.pack(side="left", padx=5)
         self.save_master_btn = ctk.CTkButton(self.action_frame, text="Save as Master Voice", command=self._save_master, state="disabled", fg_color="orange")
         self.save_master_btn.pack(side="right", padx=5)
+
+        # Start with design mode visible
+        self._update_lab_mode()
 
     def _setup_booksmith_tab(self):
         """Setup BookSmith tab for EPUB/PDF processing."""
@@ -499,7 +510,6 @@ class Vox1App(ctk.CTk):
 
         batch_info = ctk.CTkLabel(batch_frame,
             text="ℹ️ Number of text chunks processed simultaneously on your GPU.\n" +
-                 "   • Added non_streaming_mode - testing higher batch sizes\n" +
                  "   • Batch 5-10 = Test first on 24GB GPUs (RTX 4090)\n" +
                  "   • Batch 20-64 = Experimental (based on autiobook success)\n" +
                  "   • Batch 2-3 = Safe fallback for 12GB GPUs\n" +
@@ -516,65 +526,9 @@ class Vox1App(ctk.CTk):
         sep1 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
         sep1.grid(row=3, column=0, sticky="ew", pady=15)
 
-        # Attention Implementation
-        attn_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        attn_frame.grid(row=4, column=0, sticky="ew", pady=10)
-        attn_frame.grid_columnconfigure(0, weight=1)
-
-        # Note: FasterQwen3TTS uses sdpa by default (optimal for CUDA graphs)
-        attn_label = ctk.CTkLabel(attn_frame, text="Attention Implementation",
-                                  font=("Roboto", 14, "bold"))
-        attn_label.grid(row=0, column=0, sticky="w", pady=5)
-
-        self.attn_implementation_var = ctk.StringVar(value=self.settings.get("attn_implementation", "sdpa"))
-        self.attn_menu = ctk.CTkOptionMenu(attn_frame,
-                                           variable=self.attn_implementation_var,
-                                           values=["sdpa", "eager"],
-                                           width=200)
-        self.attn_menu.grid(row=1, column=0, sticky="w", pady=5)
-
-        attn_info = ctk.CTkLabel(attn_frame,
-            text="ℹ️ Attention method for transformer layers:\n" +
-                 "   • sdpa = PyTorch scaled dot product (default, recommended)\n" +
-                 "   • eager = Standard attention (fallback if sdpa fails)\n" +
-                 "   • Flash Attention not needed with CUDA graphs",
-            font=("Roboto", 11), justify="left", text_color="gray")
-        attn_info.grid(row=2, column=0, sticky="w", pady=5)
-
-        # Faster-Qwen3 Status
-        faster_qwen_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        faster_qwen_frame.grid(row=5, column=0, sticky="ew", pady=10)
-
-        faster_qwen_label = ctk.CTkLabel(faster_qwen_frame, text="⚡ Performance Mode",
-                                          font=("Roboto", 14, "bold"))
-        faster_qwen_label.grid(row=0, column=0, sticky="w", pady=5)
-
-        # Status label (will be updated on engine init)
-        self.faster_qwen_status_label = ctk.CTkLabel(
-            faster_qwen_frame,
-            text="Checking...",
-            font=("Roboto", 12),
-            text_color="gray"
-        )
-        self.faster_qwen_status_label.grid(row=1, column=0, sticky="w")
-
-        faster_qwen_info = ctk.CTkLabel(
-            faster_qwen_frame,
-            text="ℹ️ Faster-Qwen3TTS uses CUDA graphs for 5-10x speedup\n" +
-                 "   • First generation includes CUDA graph capture (~2-3s)\n" +
-                 "   • Subsequent generations are real-time (RTF > 1.0)\n" +
-                 "   • Requires PyTorch 2.5.1+ and CUDA 12.1+",
-            font=("Roboto", 11), justify="left", text_color="gray"
-        )
-        faster_qwen_info.grid(row=2, column=0, sticky="w", pady=5)
-
-        # Separator
-        sep1b = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep1b.grid(row=6, column=0, sticky="ew", pady=15)
-
         # Chunk Size
         chunk_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        chunk_frame.grid(row=6, column=0, sticky="ew", pady=10)
+        chunk_frame.grid(row=4, column=0, sticky="ew", pady=10)
         chunk_frame.grid_columnconfigure(0, weight=1)
 
         chunk_label = ctk.CTkLabel(chunk_frame, text="Chunk Size (Default: 500 chars)",
@@ -582,7 +536,6 @@ class Vox1App(ctk.CTk):
         chunk_label.grid(row=0, column=0, sticky="w", pady=5)
 
         self.chunk_size_var = ctk.IntVar(value=self.settings.get("chunk_size", 500))
-        # UPDATED: Increased limit to 5000 for "Monolith Strategy"
         self.chunk_slider = ctk.CTkSlider(chunk_frame, from_=100, to=5000, number_of_steps=98,
                                          variable=self.chunk_size_var, command=self._update_chunk_label)
         self.chunk_slider.grid(row=1, column=0, sticky="ew", pady=5)
@@ -602,76 +555,76 @@ class Vox1App(ctk.CTk):
 
         # Separator
         sep2 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep2.grid(row=7, column=0, sticky="ew", pady=15)
+        sep2.grid(row=5, column=0, sticky="ew", pady=15)
 
         # Quality & Performance Section
-        quality_label = ctk.CTkLabel(self.advanced_scroll, text="🎛️ Quality & Performance",
+        quality_label = ctk.CTkLabel(self.advanced_scroll, text="🎛️ Generation Quality",
                                      font=("Roboto", 16, "bold"))
-        quality_label.grid(row=8, column=0, pady=(10, 10), sticky="w")
+        quality_label.grid(row=6, column=0, pady=(10, 10), sticky="w")
 
-        # Temperature
-        temp_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        temp_frame.grid(row=9, column=0, sticky="ew", pady=10)
-        temp_frame.grid_columnconfigure(0, weight=1)
+        # Guidance Scale
+        gs_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
+        gs_frame.grid(row=7, column=0, sticky="ew", pady=10)
+        gs_frame.grid_columnconfigure(0, weight=1)
 
-        temp_label = ctk.CTkLabel(temp_frame, text="Temperature (Default: 0.7)",
-                                 font=("Roboto", 14, "bold"))
-        temp_label.grid(row=0, column=0, sticky="w", pady=5)
-
-        self.temperature_var = ctk.DoubleVar(value=self.settings.get("temperature", 0.7))
-        self.temp_slider = ctk.CTkSlider(temp_frame, from_=0.1, to=2.0, number_of_steps=19,
-                                        variable=self.temperature_var, command=self._update_temp_label)
-        self.temp_slider.grid(row=1, column=0, sticky="ew", pady=5)
-
-        self.temp_value_label = ctk.CTkLabel(temp_frame, text=f"Current: {self.temperature_var.get():.1f}",
-                                            font=("Roboto", 12))
-        self.temp_value_label.grid(row=2, column=0, sticky="w")
-
-        temp_info = ctk.CTkLabel(temp_frame,
-            text="ℹ️ Controls voice creativity and variation:\n" +
-                 "   • Lower (0.3-0.5) = More consistent, monotone\n" +
-                 "   • Default (0.7) = Balanced naturalness\n" +
-                 "   • Higher (1.0-1.5) = More expressive, variable",
-            font=("Roboto", 11), justify="left", text_color="gray")
-        temp_info.grid(row=3, column=0, sticky="w", pady=5)
-
-        # Repetition Penalty
-        rep_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        rep_frame.grid(row=10, column=0, sticky="ew", pady=10)
-        rep_frame.grid_columnconfigure(0, weight=1)
-
-        rep_label = ctk.CTkLabel(rep_frame, text="Repetition Penalty (Default: 1.05)",
+        gs_label = ctk.CTkLabel(gs_frame, text="Guidance Scale (Default: 2.0)",
                                 font=("Roboto", 14, "bold"))
-        rep_label.grid(row=0, column=0, sticky="w", pady=5)
+        gs_label.grid(row=0, column=0, sticky="w", pady=5)
 
-        self.repetition_penalty_var = ctk.DoubleVar(value=self.settings.get("repetition_penalty", 1.05))
-        self.rep_slider = ctk.CTkSlider(rep_frame, from_=1.0, to=2.0, number_of_steps=20,
-                                       variable=self.repetition_penalty_var, command=self._update_rep_label)
-        self.rep_slider.grid(row=1, column=0, sticky="ew", pady=5)
+        self.guidance_scale_var = ctk.DoubleVar(value=self.settings.get("guidance_scale", 2.0))
+        self.gs_slider = ctk.CTkSlider(gs_frame, from_=1.0, to=4.0, number_of_steps=30,
+                                       variable=self.guidance_scale_var, command=self._update_gs_label)
+        self.gs_slider.grid(row=1, column=0, sticky="ew", pady=5)
 
-        self.rep_value_label = ctk.CTkLabel(rep_frame, text=f"Current: {self.repetition_penalty_var.get():.2f}",
+        self.gs_value_label = ctk.CTkLabel(gs_frame, text=f"Current: {self.guidance_scale_var.get():.1f}",
                                            font=("Roboto", 12))
-        self.rep_value_label.grid(row=2, column=0, sticky="w")
+        self.gs_value_label.grid(row=2, column=0, sticky="w")
 
-        rep_info = ctk.CTkLabel(rep_frame,
-            text="ℹ️ Prevents voice from getting stuck in loops:\n" +
-                 "   • 1.0 = No penalty (may loop/repeat)\n" +
-                 "   • 1.05 = Slight penalty (recommended)\n" +
-                 "   • 1.2+ = Strong penalty (prevents repetition)",
+        gs_info = ctk.CTkLabel(gs_frame,
+            text="ℹ️ How closely generation follows the reference/instruction:\n" +
+                 "   • 1.0-1.5 = Low guidance (more variation from reference)\n" +
+                 "   • 2.0 = Default (good balance)\n" +
+                 "   • 3.0-4.0 = High guidance (closer to reference, less creative)",
             font=("Roboto", 11), justify="left", text_color="gray")
-        rep_info.grid(row=3, column=0, sticky="w", pady=5)
+        gs_info.grid(row=3, column=0, sticky="w", pady=5)
+
+        # Num Diffusion Steps
+        step_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
+        step_frame.grid(row=8, column=0, sticky="ew", pady=10)
+        step_frame.grid_columnconfigure(0, weight=1)
+
+        step_label = ctk.CTkLabel(step_frame, text="Diffusion Steps (Default: 32)",
+                                  font=("Roboto", 14, "bold"))
+        step_label.grid(row=0, column=0, sticky="w", pady=5)
+
+        self.num_step_var = ctk.IntVar(value=self.settings.get("num_step", 32))
+        self.step_slider = ctk.CTkSlider(step_frame, from_=8, to=64, number_of_steps=56,
+                                        variable=self.num_step_var, command=self._update_step_label)
+        self.step_slider.grid(row=1, column=0, sticky="ew", pady=5)
+
+        self.step_value_label = ctk.CTkLabel(step_frame, text=f"Current: {self.num_step_var.get()}",
+                                            font=("Roboto", 12))
+        self.step_value_label.grid(row=2, column=0, sticky="w")
+
+        step_info = ctk.CTkLabel(step_frame,
+            text="ℹ️ Number of iterative refinement steps (speed vs quality):\n" +
+                 "   • 8-16 = Fastest, slightly lower quality\n" +
+                 "   • 32 = Default (good balance)\n" +
+                 "   • 48-64 = Highest quality, slower",
+            font=("Roboto", 11), justify="left", text_color="gray")
+        step_info.grid(row=3, column=0, sticky="w", pady=5)
 
         # Separator
         sep3 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep3.grid(row=11, column=0, sticky="ew", pady=15)
+        sep3.grid(row=9, column=0, sticky="ew", pady=15)
 
         # Monitoring Section
         monitor_label = ctk.CTkLabel(self.advanced_scroll, text="📊 Monitoring & Logging",
                                      font=("Roboto", 16, "bold"))
-        monitor_label.grid(row=12, column=0, pady=(10, 10), sticky="w")
+        monitor_label.grid(row=10, column=0, pady=(10, 10), sticky="w")
 
         monitor_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        monitor_frame.grid(row=13, column=0, sticky="ew", pady=10)
+        monitor_frame.grid(row=11, column=0, sticky="ew", pady=10)
 
         self.show_vram_var = ctk.BooleanVar(value=self.settings.get("show_vram", True))
         self.vram_checkbox = ctk.CTkCheckBox(monitor_frame, text="Show VRAM usage in Activity Log",
@@ -690,27 +643,27 @@ class Vox1App(ctk.CTk):
 
         # Separator
         sep4 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep4.grid(row=14, column=0, sticky="ew", pady=15)
+        sep4.grid(row=12, column=0, sticky="ew", pady=15)
 
         # Quick Tips Section
         tips_label = ctk.CTkLabel(self.advanced_scroll, text="💡 Quick Tips",
                                  font=("Roboto", 16, "bold"))
-        tips_label.grid(row=15, column=0, pady=(10, 10), sticky="w")
+        tips_label.grid(row=13, column=0, pady=(10, 10), sticky="w")
 
         tips_text = (
             "• Start with defaults if unsure\n" 
             "• Watch Activity Log during first render to see VRAM usage\n" 
             "• If VRAM usage stays low (under 50%), try increasing batch size\n" 
             "• If you get memory errors, decrease batch size by 2-3\n" 
-            "• Temperature 0.7 and Rep Penalty 1.05 work well for most voices"
+            "• Guidance Scale 2.0 and Diffusion Steps 32 work well for most voices"
         )
         tips_display = ctk.CTkLabel(self.advanced_scroll, text=tips_text,
                                     font=("Roboto", 11), justify="left", text_color="lightblue")
-        tips_display.grid(row=16, column=0, sticky="w", pady=5)
+        tips_display.grid(row=14, column=0, sticky="w", pady=5)
 
         # Bottom buttons
         button_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        button_frame.grid(row=17, column=0, sticky="ew", pady=20)
+        button_frame.grid(row=15, column=0, sticky="ew", pady=20)
         button_frame.grid_columnconfigure(1, weight=1)
 
         reset_btn = ctk.CTkButton(button_frame, text="Reset to Defaults",
@@ -731,13 +684,11 @@ class Vox1App(ctk.CTk):
         """Update the chunk size label when slider moves."""
         self.chunk_value_label.configure(text=f"Current: {int(float(value))} characters")
 
-    def _update_temp_label(self, value):
-        """Update the temperature label when slider moves."""
-        self.temp_value_label.configure(text=f"Current: {float(value):.1f}")
+    def _update_gs_label(self, value):
+        self.gs_value_label.configure(text=f"Current: {float(value):.1f}")
 
-    def _update_rep_label(self, value):
-        """Update the repetition penalty label when slider moves."""
-        self.rep_value_label.configure(text=f"Current: {float(value):.2f}")
+    def _update_step_label(self, value):
+        self.step_value_label.configure(text=f"Current: {int(float(value))}")
 
     def _auto_detect_batch_size(self):
         """Auto-detect optimal batch size based on available VRAM."""
@@ -747,19 +698,19 @@ class Vox1App(ctk.CTk):
                 props = torch.cuda.get_device_properties(0)
                 total_vram_gb = props.total_memory / (1024**3)
 
-                # Aggressive scaling for high-end GPUs (consistent with backend)
+                # OmniVoice diffusion model is VRAM-efficient
                 if total_vram_gb >= 22:  # 4090 (24GB)
-                    suggested = 32
+                    suggested = 64
                 elif total_vram_gb >= 16:  # 4080 (16GB)
-                    suggested = 20
+                    suggested = 48
                 elif total_vram_gb >= 11:  # 3080 Ti (12GB)
-                    suggested = 12
+                    suggested = 32
                 elif total_vram_gb >= 7:   # 3070 (8GB)
-                    suggested = 6
+                    suggested = 16
                 elif total_vram_gb >= 5:   # 6GB cards
-                    suggested = 3
+                    suggested = 8
                 else:
-                    suggested = 1
+                    suggested = 2
 
                 self.batch_size_var.set(suggested)
                 self._update_batch_label(suggested)
@@ -777,142 +728,70 @@ class Vox1App(ctk.CTk):
         """Reset all advanced settings to defaults."""
         self.batch_size_var.set(2)
         self.chunk_size_var.set(500)
-        self.attn_implementation_var.set("auto")
-        self.temperature_var.set(0.7)
-        self.repetition_penalty_var.set(1.05)
+        self.guidance_scale_var.set(2.0)
+        self.num_step_var.set(32)
         self.show_vram_var.set(True)
         self.show_timing_var.set(True)
         self.debug_mode_var.set(False)
         self._update_batch_label(2)
         self._update_chunk_label(500)
-        self._update_temp_label(0.7)
-        self._update_rep_label(1.05)
+        self._update_gs_label(2.0)
+        self._update_step_label(32)
         messagebox.showinfo("Reset", "Advanced settings reset to defaults!")
 
     def _apply_advanced_settings(self):
-        """Apply and save advanced settings, then reload engine."""
+        """Apply and save advanced settings without reloading the model."""
         self._save_settings()
 
-        # Get current model size
-        current_choice = self.model_size_var.get()
-        if "0.6B" in current_choice:
-            size = "0.6B"
-        else:
-            size = "1.7B"
+        # Update engine parameters in-place (no model reload needed)
+        if self.engine:
+            self.engine.batch_size = int(self.batch_size_var.get())
+            self.engine.chunk_size = int(self.chunk_size_var.get())
+            self.engine.guidance_scale = float(self.guidance_scale_var.get())
+            self.engine.num_step = int(self.num_step_var.get())
 
-        # Show applying message
-        self.status_bar.configure(text="Applying new settings...")
-        self.gen_btn.configure(state="disabled")
-        self.render_btn.configure(state="disabled")
+        msg = (f"Advanced settings applied!\n\n" +
+            f"Batch Size: {self.batch_size_var.get()}\n" +
+            f"Chunk Size: {self.chunk_size_var.get()}\n" +
+            f"Guidance Scale: {self.guidance_scale_var.get():.1f}\n" +
+            f"Diffusion Steps: {self.num_step_var.get()}")
+        self.log("Settings applied: " + msg.replace('\n', ' | '))
+        messagebox.showinfo("Settings Applied", msg)
 
-        # Reload engine with new settings in background thread
-        def apply_and_reload():
-            try:
-                # Brief delay to let UI update
-                import time
-                time.sleep(0.5)
-
-                # Reload engine
-                self._start_engine_thread(size)
-
-                # Show success message
-                # Build success message with Faster-Qwen3 status
-                msg = (f"Advanced settings applied successfully!\n\n" +
-                    f"Batch Size: {self.batch_size_var.get()}\n" +
-                    f"Chunk Size: {self.chunk_size_var.get()}\n" +
-                    f"Attention: {self.attn_implementation_var.get()}\n" +
-                    f"Temperature: {self.temperature_var.get():.1f}\n" +
-                    f"Repetition Penalty: {self.repetition_penalty_var.get():.2f}")
-                
-                if hasattr(self, 'engine') and self.engine:
-                    if self.engine.use_faster_qwen:
-                        msg += "\n\n✅ Faster-Qwen3TTS Active (CUDA Graphs Enabled)"
-                    else:
-                        msg += "\n\n⚠️ Using Original Qwen3TTS"
-                
-                msg += "\n\nEngine reloaded with new settings."
-                self.after(0, lambda: messagebox.showinfo("Settings Applied", msg))
-            except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Error", f"Failed to apply settings: {str(e)}"))
-
-        threading.Thread(target=apply_and_reload, daemon=True).start()
-
-    def _init_engine_default(self):
-        self._start_engine_thread("1.7B")
-
-    def _on_model_change(self, choice):
-        if choice == "0.6B (Fastest)":
-            size = "0.6B"
-        else:
-            size = "1.7B"
-        
-        self.status_bar.configure(text=f"Switching to {size} model...")
-        self.gen_btn.configure(state="disabled")
-        self.render_btn.configure(state="disabled")
-        self._start_engine_thread(size)
-
-    def _start_engine_thread(self, size):
+    def _start_engine_thread(self):
         def load():
             try:
-                # Force engine reload
                 self.engine = None
-                # Pass advanced settings to engine
                 batch_size = self.settings.get("batch_size", 2)
                 chunk_size = self.settings.get("chunk_size", 500)
-                temperature = self.settings.get("temperature", 0.7)
-                top_p = self.settings.get("top_p", 0.8)
-                top_k = self.settings.get("top_k", 20)
-                repetition_penalty = self.settings.get("repetition_penalty", 1.05)
-                attn_implementation = self.settings.get("attn_implementation", "auto")
+                guidance_scale = self.settings.get("guidance_scale", 2.0)
+                num_step = self.settings.get("num_step", 32)
                 self.engine = AudioEngine(
                     log_callback=self.log,
-                    model_size=size,
                     batch_size=batch_size,
                     chunk_size=chunk_size,
-                    temperature=temperature,
-                    top_p=top_p,
-                    top_k=top_k,
-                    repetition_penalty=repetition_penalty,
-                    attn_implementation=attn_implementation
+                    guidance_scale=guidance_scale,
+                    num_step=num_step,
                 )
-                self.after(0, lambda: self.status_bar.configure(text=f"System Ready ({size})"))
+                self.after(0, lambda: self.status_bar.configure(text="System Ready — OmniVoice"))
                 self.after(0, lambda: self.gen_btn.configure(state="normal"))
-                
-                # Update Faster-Qwen3 status
-                if hasattr(self, 'faster_qwen_status_label') and self.engine:
-                    if self.engine.use_faster_qwen:
-                        self.after(0, lambda: self.faster_qwen_status_label.configure(
-                            text="✅ Faster-Qwen3TTS Active (CUDA Graphs)",
-                            text_color="green"
-                        ))
-                    else:
-                        self.after(0, lambda: self.faster_qwen_status_label.configure(
-                            text="⚠️ Using Original Qwen3TTS",
-                            text_color="orange"
-                        ))
-                
                 self.after(0, self._check_render_ready)
             except Exception as e:
                 err_msg = traceback.format_exc()
                 self.log("ENGINE ERROR:\n" + err_msg)
                 self.after(0, lambda: self.status_bar.configure(text="Engine Failed"))
-        
+
         threading.Thread(target=load, daemon=True).start()
 
     # --- Rest of the handlers same as before ---
     def _update_lab_mode(self):
         mode = self.mode_var.get()
         if mode == "design":
-            self.file_label.grid_forget(); self.file_btn.grid_forget(); self.ref_file_path_label.grid_forget()
-            self.smart_import_checkbox.grid_forget()
-            self.desc_label.grid(row=0, column=0, sticky="w", padx=10, pady=(10,0))
-            self.desc_entry.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+            self.design_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+            self.clone_frame.grid_forget()
         else:
-            self.desc_label.grid_forget(); self.desc_entry.grid_forget()
-            self.file_label.grid(row=0, column=0, sticky="w", padx=10, pady=(10,0))
-            self.file_btn.grid(row=1, column=0, sticky="w", padx=10, pady=5)
-            self.ref_file_path_label.grid(row=2, column=0, sticky="w", padx=10, pady=5)
-            self.smart_import_checkbox.grid(row=3, column=0, sticky="w", padx=10, pady=(5, 10))
+            self.design_frame.grid_forget()
+            self.clone_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
 
     def _choose_ref_file(self):
         path = filedialog.askopenfilename(filetypes=[("Audio", "*.wav *.mp3")])
@@ -944,6 +823,8 @@ class Vox1App(ctk.CTk):
             try:
                 if mode == "design":
                     desc = self.desc_entry.get("0.0", "end").strip()
+                    if not desc:
+                        raise ValueError("Please enter voice attributes (e.g. 'male, moderate pitch, british accent')")
                     path = self.engine.create_voice_design(text, desc)
                 else:
                     if not hasattr(self, 'ref_file_path'): raise ValueError("No file selected")
@@ -952,6 +833,22 @@ class Vox1App(ctk.CTk):
                 self.after(0, lambda: self.play_btn.configure(state="normal"))
                 self.after(0, lambda: self.save_master_btn.configure(state="normal"))
                 self.after(0, lambda: self.status_bar.configure(text="Done"))
+            except ValueError as e:
+                err = str(e)
+                self.log(f"Input error: {err}")
+                # Check if it's an OmniVoice unsupported instruct error - show helpful message
+                if "Unsupported instruct items" in err or "unsupported" in err.lower():
+                    valid = ("Valid voice attributes (comma-separated):\n\n"
+                             "Gender: male, female\n"
+                             "Age: child, teenager, young adult, middle-aged, elderly\n"
+                             "Pitch: very low, low, moderate, high, very high\n"
+                             "Style: whisper\n"
+                             "Accent: american, british, australian, canadian, indian, \n"
+                             "        chinese, japanese, korean, portuguese, russian\n\n"
+                             "Example: 'female, british accent'")
+                    self.after(0, lambda: messagebox.showerror("Invalid Voice Attributes", valid))
+                else:
+                    self.after(0, lambda: messagebox.showerror("Error", err))
             except Exception as e:
                 self.log(traceback.format_exc())
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))

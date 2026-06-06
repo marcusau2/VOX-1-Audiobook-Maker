@@ -52,11 +52,11 @@ class TextCleaner:
     """
     Aggressive text sanitization for LLM-based TTS models.
 
-    Qwen3-TTS/CosyVoice are sensitive to:
-    - Page numbers and headers (can trigger repetition loops)
-    - HTML entities and invisible characters (hallucination triggers)
-    - Ligatures and special unicode (breaks tokenization)
-    - Footnote markers and reference symbols (interpreted as prompts)
+    TTS models (OmniVoice, CosyVoice) are sensitive to:
+    - Page numbers and headers (can cause artifacts)
+    - HTML entities and invisible characters (breaks tokenization)
+    - Ligatures and special unicode (tokenizer confusion)
+    - Footnote markers and reference symbols (noise artifacts)
     """
 
     @staticmethod
