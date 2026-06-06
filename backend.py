@@ -55,7 +55,7 @@ def smart_import_audio(input_path, log_callback=None):
         audio = audio.set_channels(1)
         log("Smart Import: Converted to mono (Volume untouched)")
 
-        if len(audio) <= 10000:
+        if len(audio) <= 20000:
             log("Smart Import: File is short, optimizing...")
             audio = strip_silence(audio, silence_thresh=-40, padding=100)
             output_dir = "VOX-Output"
@@ -65,8 +65,8 @@ def smart_import_audio(input_path, log_callback=None):
             duration_msg = f"{len(audio)/1000:.1f}s"
             return output_path, f"Optimized {duration_msg} clip"
 
-        log("Smart Import: Analyzing speech patterns for best 5s clip...")
-        best_segment, segment_start = find_best_speech_segment(audio, target_duration=5000)
+        log("Smart Import: Analyzing speech patterns for best 15s clip...")
+        best_segment, segment_start = find_best_speech_segment(audio, target_duration=15000)
         best_segment = strip_silence(best_segment, silence_thresh=-40, padding=100)
 
         output_dir = "VOX-Output"
