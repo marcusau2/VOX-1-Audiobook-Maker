@@ -59,6 +59,7 @@ class Vox1App(ctk.CTk):
             "chunk_size": 500,
             "guidance_scale": 2.0,
             "num_step": 32,
+            "speed": 1.0,
             "show_vram": True,
             "show_timing": True,
             "debug_mode": False,
@@ -76,6 +77,8 @@ class Vox1App(ctk.CTk):
                 self.settings["guidance_scale"] = float(self.guidance_scale_var.get())
             if hasattr(self, 'num_step_var'):
                 self.settings["num_step"] = int(self.num_step_var.get())
+            if hasattr(self, 'speed_var'):
+                self.settings["speed"] = float(self.speed_var.get())
             if hasattr(self, 'show_vram_var'):
                 self.settings["show_vram"] = self.show_vram_var.get()
             if hasattr(self, 'show_timing_var'):
@@ -614,17 +617,44 @@ class Vox1App(ctk.CTk):
             font=("Roboto", 11), justify="left", text_color="gray")
         step_info.grid(row=3, column=0, sticky="w", pady=5)
 
+        # Speaking Speed
+        speed_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
+        speed_frame.grid(row=9, column=0, sticky="ew", pady=10)
+        speed_frame.grid_columnconfigure(0, weight=1)
+
+        speed_label = ctk.CTkLabel(speed_frame, text="Speaking Speed (Default: 1.0)",
+                                   font=("Roboto", 14, "bold"))
+        speed_label.grid(row=0, column=0, sticky="w", pady=5)
+
+        self.speed_var = ctk.DoubleVar(value=self.settings.get("speed", 1.0))
+        self.speed_slider = ctk.CTkSlider(speed_frame, from_=0.5, to=2.0, number_of_steps=30,
+                                         variable=self.speed_var, command=self._update_speed_label)
+        self.speed_slider.grid(row=1, column=0, sticky="ew", pady=5)
+
+        self.speed_value_label = ctk.CTkLabel(speed_frame, text=f"Current: {self.speed_var.get():.2f}x",
+                                             font=("Roboto", 12))
+        self.speed_value_label.grid(row=2, column=0, sticky="w")
+
+        speed_info = ctk.CTkLabel(speed_frame,
+            text=("ℹ️ Speaking rate multiplier:\n"
+                   "   • 0.50 = Half speed (slower, more deliberate)\n"
+                   "   • 1.00 = Normal speed (default)\n"
+                   "   • 1.50 = 50% faster\n"
+                   "   • 2.00 = Double speed"),
+            font=("Roboto", 11), justify="left", text_color="gray")
+        speed_info.grid(row=3, column=0, sticky="w", pady=5)
+
         # Separator
         sep3 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep3.grid(row=9, column=0, sticky="ew", pady=15)
+        sep3.grid(row=10, column=0, sticky="ew", pady=15)
 
         # Monitoring Section
         monitor_label = ctk.CTkLabel(self.advanced_scroll, text="📊 Monitoring & Logging",
                                      font=("Roboto", 16, "bold"))
-        monitor_label.grid(row=10, column=0, pady=(10, 10), sticky="w")
+        monitor_label.grid(row=11, column=0, pady=(10, 10), sticky="w")
 
         monitor_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        monitor_frame.grid(row=11, column=0, sticky="ew", pady=10)
+        monitor_frame.grid(row=12, column=0, sticky="ew", pady=10)
 
         self.show_vram_var = ctk.BooleanVar(value=self.settings.get("show_vram", True))
         self.vram_checkbox = ctk.CTkCheckBox(monitor_frame, text="Show VRAM usage in Activity Log",
@@ -643,12 +673,12 @@ class Vox1App(ctk.CTk):
 
         # Separator
         sep4 = ctk.CTkFrame(self.advanced_scroll, height=2, fg_color="gray30")
-        sep4.grid(row=12, column=0, sticky="ew", pady=15)
+        sep4.grid(row=13, column=0, sticky="ew", pady=15)
 
         # Quick Tips Section
         tips_label = ctk.CTkLabel(self.advanced_scroll, text="💡 Quick Tips",
                                  font=("Roboto", 16, "bold"))
-        tips_label.grid(row=13, column=0, pady=(10, 10), sticky="w")
+        tips_label.grid(row=14, column=0, pady=(10, 10), sticky="w")
 
         tips_text = (
             "• Start with defaults if unsure\n" 
@@ -659,11 +689,11 @@ class Vox1App(ctk.CTk):
         )
         tips_display = ctk.CTkLabel(self.advanced_scroll, text=tips_text,
                                     font=("Roboto", 11), justify="left", text_color="lightblue")
-        tips_display.grid(row=14, column=0, sticky="w", pady=5)
+        tips_display.grid(row=15, column=0, sticky="w", pady=5)
 
         # Bottom buttons
         button_frame = ctk.CTkFrame(self.advanced_scroll, fg_color="transparent")
-        button_frame.grid(row=15, column=0, sticky="ew", pady=20)
+        button_frame.grid(row=16, column=0, sticky="ew", pady=20)
         button_frame.grid_columnconfigure(1, weight=1)
 
         reset_btn = ctk.CTkButton(button_frame, text="Reset to Defaults",
@@ -689,6 +719,9 @@ class Vox1App(ctk.CTk):
 
     def _update_step_label(self, value):
         self.step_value_label.configure(text=f"Current: {int(float(value))}")
+
+    def _update_speed_label(self, value):
+        self.speed_value_label.configure(text=f"Current: {float(value):.2f}x")
 
     def _auto_detect_batch_size(self):
         """Auto-detect optimal batch size based on available VRAM."""
@@ -730,6 +763,7 @@ class Vox1App(ctk.CTk):
         self.chunk_size_var.set(500)
         self.guidance_scale_var.set(2.0)
         self.num_step_var.set(32)
+        self.speed_var.set(1.0)
         self.show_vram_var.set(True)
         self.show_timing_var.set(True)
         self.debug_mode_var.set(False)
@@ -737,6 +771,7 @@ class Vox1App(ctk.CTk):
         self._update_chunk_label(500)
         self._update_gs_label(2.0)
         self._update_step_label(32)
+        self._update_speed_label(1.0)
         messagebox.showinfo("Reset", "Advanced settings reset to defaults!")
 
     def _apply_advanced_settings(self):
@@ -749,12 +784,14 @@ class Vox1App(ctk.CTk):
             self.engine.chunk_size = int(self.chunk_size_var.get())
             self.engine.guidance_scale = float(self.guidance_scale_var.get())
             self.engine.num_step = int(self.num_step_var.get())
+            self.engine.speed = float(self.speed_var.get())
 
         msg = (f"Advanced settings applied!\n\n" +
             f"Batch Size: {self.batch_size_var.get()}\n" +
             f"Chunk Size: {self.chunk_size_var.get()}\n" +
             f"Guidance Scale: {self.guidance_scale_var.get():.1f}\n" +
-            f"Diffusion Steps: {self.num_step_var.get()}")
+            f"Diffusion Steps: {self.num_step_var.get()}\n" +
+            f"Speed: {self.speed_var.get():.2f}x")
         self.log("Settings applied: " + msg.replace('\n', ' | '))
         messagebox.showinfo("Settings Applied", msg)
 
@@ -766,12 +803,14 @@ class Vox1App(ctk.CTk):
                 chunk_size = self.settings.get("chunk_size", 500)
                 guidance_scale = self.settings.get("guidance_scale", 2.0)
                 num_step = self.settings.get("num_step", 32)
+                speed = self.settings.get("speed", 1.0)
                 self.engine = AudioEngine(
                     log_callback=self.log,
                     batch_size=batch_size,
                     chunk_size=chunk_size,
                     guidance_scale=guidance_scale,
                     num_step=num_step,
+                    speed=speed,
                 )
                 self.after(0, lambda: self.status_bar.configure(text="System Ready — OmniVoice"))
                 self.after(0, lambda: self.gen_btn.configure(state="normal"))

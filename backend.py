@@ -156,7 +156,7 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 
 class AudioEngine:
     def __init__(self, log_callback=print, batch_size=5, chunk_size=500,
-                 guidance_scale=2.0, num_step=32, class_temperature=0.0):
+                 guidance_scale=2.0, num_step=32, class_temperature=0.0, speed=1.0):
         self.log = log_callback
         self.batch_size = batch_size
         self.chunk_size = chunk_size
@@ -164,6 +164,7 @@ class AudioEngine:
         self.guidance_scale = guidance_scale
         self.num_step = num_step
         self.class_temperature = class_temperature
+        self.speed = speed
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.log(f"Initializing AudioEngine on {self.device}...")
@@ -285,6 +286,7 @@ class AudioEngine:
             guidance_scale=self.guidance_scale,
             num_step=self.num_step,
             class_temperature=self.class_temperature,
+            speed=self.speed,
         )
         wav_out = audio_list[0]
 
@@ -310,6 +312,7 @@ class AudioEngine:
             guidance_scale=self.guidance_scale,
             num_step=self.num_step,
             class_temperature=self.class_temperature,
+            speed=self.speed,
         )
         wav_out = audio_list[0]
 
@@ -378,6 +381,7 @@ class AudioEngine:
                     guidance_scale=self.guidance_scale,
                     num_step=self.num_step,
                     class_temperature=self.class_temperature,
+                    speed=self.speed,
                 )
 
                 for idx, wav, orig_idx in zip(range(len(audio_list)), audio_list, batch_indices):
@@ -510,6 +514,7 @@ class AudioEngine:
                         guidance_scale=self.guidance_scale,
                         num_step=self.num_step,
                         class_temperature=self.class_temperature,
+                        speed=self.speed,
                     )
 
                     from pydub import AudioSegment
