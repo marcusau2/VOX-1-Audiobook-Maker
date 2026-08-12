@@ -66,7 +66,7 @@ class Vox1App(ctk.CTk):
         return {
             "last_voice": None,
             "batch_size": 10,
-            "chunk_size": 500,
+            "chunk_size": 250,
             "guidance_scale": 2.0,
             "num_step": 32,
             "speed": 1.0,
@@ -690,11 +690,11 @@ class Vox1App(ctk.CTk):
         chunk_frame.grid(row=4, column=0, sticky="ew", pady=10)
         chunk_frame.grid_columnconfigure(0, weight=1)
 
-        chunk_label = ctk.CTkLabel(chunk_frame, text="Chunk Size (Default: 500 chars)",
+        chunk_label = ctk.CTkLabel(chunk_frame, text="Chunk Size (Default: 250 chars)",
                                    font=("Roboto", 14, "bold"))
         chunk_label.grid(row=0, column=0, sticky="w", pady=5)
 
-        self.chunk_size_var = ctk.IntVar(value=self.settings.get("chunk_size", 500))
+        self.chunk_size_var = ctk.IntVar(value=self.settings.get("chunk_size", 250))
         self.chunk_slider = ctk.CTkSlider(chunk_frame, from_=100, to=5000, number_of_steps=98,
                                          variable=self.chunk_size_var, command=self._update_chunk_label)
         self.chunk_slider.grid(row=1, column=0, sticky="ew", pady=5)
@@ -707,7 +707,9 @@ class Vox1App(ctk.CTk):
             text="ℹ️ Maximum text length per segment before splitting.\n" +
                  "   • Larger = Fewer total chunks, faster overall processing\n" +
                  "   • Smaller = More chunks, lower VRAM per chunk\n" +
-                 "   • Default (500) works well for most books and GPUs\n" +
+                 "   • Default (250) keeps each chunk under OmniVoice's internal\n" +
+                 "     30-second re-splitting threshold (avoids audible seams)\n" +
+                 "   • Chunks always break at sentence boundaries (Mr./Dr./U.S. safe)\n" +
                  "   • Range: 100-5000 characters",
             font=("Roboto", 11), justify="left", text_color="gray")
         chunk_info.grid(row=3, column=0, sticky="w", pady=5)
@@ -916,7 +918,7 @@ class Vox1App(ctk.CTk):
     def _reset_advanced_settings(self):
         """Reset all advanced settings to defaults."""
         self.batch_size_var.set(10)
-        self.chunk_size_var.set(500)
+        self.chunk_size_var.set(250)
         self.guidance_scale_var.set(2.0)
         self.num_step_var.set(32)
         self.speed_var.set(1.0)

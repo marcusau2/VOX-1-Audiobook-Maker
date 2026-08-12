@@ -186,7 +186,7 @@ def strip_silence(audio, silence_thresh=-40, padding=200):
 # ============================================================================
 
 class AudioEngine:
-    def __init__(self, log_callback=print, batch_size=5, chunk_size=500,
+    def __init__(self, log_callback=print, batch_size=5, chunk_size=250,
                  guidance_scale=2.0, num_step=32, class_temperature=0.0, speed=1.0):
         self.log = log_callback
         self.batch_size = batch_size
@@ -536,6 +536,8 @@ class AudioEngine:
             num_step=self.num_step,
             class_temperature=self.class_temperature,
             speed=self.speed,
+            fade_duration=0.0,
+            pad_duration=0.0,
         )
         wav_out = audio_list[0]
 
@@ -562,6 +564,8 @@ class AudioEngine:
             num_step=self.num_step,
             class_temperature=self.class_temperature,
             speed=self.speed,
+            fade_duration=0.0,
+            pad_duration=0.0,
         )
         wav_out = audio_list[0]
 
@@ -612,10 +616,11 @@ class AudioEngine:
             batch_indices = [item[0] for item in batch_items]
             batch_texts = [item[1] for item in batch_items]
 
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
             if i % 5 == 0 and i > 0:
                 gc.collect()
                 if self.device == "cuda":
-                    torch.cuda.empty_cache()
                     torch.cuda.synchronize()
 
             if i % 20 == 0:
@@ -631,6 +636,8 @@ class AudioEngine:
                     num_step=self.num_step,
                     class_temperature=self.class_temperature,
                     speed=self.speed,
+                    fade_duration=0.0,
+                    pad_duration=0.0,
                 )
 
                 for idx, wav, orig_idx in zip(range(len(audio_list)), audio_list, batch_indices):
@@ -751,10 +758,11 @@ class AudioEngine:
                 batch_indices = [x[0] for x in batch_items]
                 batch_texts = [x[1] for x in batch_items]
 
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
                 if i % 5 == 0 and i > 0:
                     gc.collect()
                     if self.device == "cuda":
-                        torch.cuda.empty_cache()
                         torch.cuda.synchronize()
 
                 try:
@@ -767,6 +775,8 @@ class AudioEngine:
                         num_step=self.num_step,
                         class_temperature=self.class_temperature,
                         speed=self.speed,
+                        fade_duration=0.0,
+                        pad_duration=0.0,
                     )
 
                     from pydub import AudioSegment
@@ -869,14 +879,111 @@ class AudioEngine:
     def clear_converted_files(self):
         self._clear_temp_dir()
 
+    # Abbreviations whose period must not be treated as a sentence boundary.
+    _ABBREVIATION_TOKENS = frozenset([
+        "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "vs", "etc",
+        "e.g", "i.e", "no", "nos", "fig", "figs", "p", "pp", "vol", "vols",
+        "ed", "eds", "trans", "approx", "dept", "est", "gen", "gov", "inc",
+        "ltd", "co", "corp", "univ", "u.s", "u.k", "u.n", "u.s.s.r", "u.s.a",
+        "a.m", "p.m", "b.c", "a.d", "d.c", "al", "cf", "esp", "ibid", "op",
+        "cit", "sec", "min", "hr", "sq", "ft", "in", "lbs", "ch", "chs",
+    ])
+
+    def _normalize_numbers_for_tts(self, text):
+        """Rewrite symbols OmniVoice reads poorly into spoken words."""
+        import re
+
+        def _money_repl(m):
+            num, scale = m.group(1), m.group(2) or ''
+            return f'{num} {scale} dollars' if scale else f'{num} dollars'
+
+        # "$3.5 billion" -> "3.5 billion dollars"; "$2,000" -> "2,000 dollars"
+        text = re.sub(r'\$(\d[\d,]*(?:\.\d+)?)(?:\s*(billion|million|trillion))?', _money_repl, text)
+        text = re.sub(r'(\d[\d,]*(?:\.\d+)?)\s*%', r'\1 percent', text)
+        text = text.replace('&', ' and ')
+        return text
+
+    def _split_sentences(self, text):
+        """
+        Split text into sentences. Periods inside abbreviations (Mr., Dr., U.S.,
+        p., etc.), single-letter initials and decimal numbers (3.5) are NOT
+        treated as boundaries. Closing quotes directly after sentence-ending
+        punctuation are absorbed so `"No."` stays one sentence.
+        """
+        import re
+        sentences = []
+        current = []
+        i, n = 0, len(text)
+        closing = set('"\')]”’』」）')
+        while i < n:
+            ch = text[i]
+            # Re-attach stray closing punctuation (e.g. a '!' after '?', or a
+            # quote left dangling by an earlier split) to the previous sentence.
+            if not current and sentences and ch in '.!?,;:)]}”’\'\"':
+                sentences[-1] += ch
+                i += 1
+                continue
+            current.append(ch)
+            if ch in '.!?':
+                if ch == '.':
+                    prev_digit = i > 0 and text[i - 1].isdigit()
+                    next_digit = i + 1 < n and text[i + 1].isdigit()
+                    if prev_digit and next_digit:
+                        i += 1  # decimal point, e.g. 3.5
+                        continue
+                    if self._period_is_abbreviation(''.join(current)):
+                        i += 1  # e.g. Mr., Dr., U.S., p.
+                        continue
+                # absorb closing marks that directly follow (e.g. `"No."`)
+                j = i + 1
+                while j < n and text[j] in closing:
+                    current.append(text[j])
+                    j += 1
+                sentences.append(''.join(current))
+                current = []
+                i = j
+                continue
+            i += 1
+        if current:
+            sentences.append(''.join(current))
+        return sentences
+
+    def _period_is_abbreviation(self, text_up_to_dot):
+        """True when the '.' just seen belongs to an abbreviation/initial."""
+        import re
+        m = re.search(r'(\S+)$', text_up_to_dot)
+        token = m.group(1) if m else ''
+        base = token.rstrip('.,;:').lower()
+        if base in self._ABBREVIATION_TOKENS:
+            return True
+        # Single-letter initial, e.g. "A. Lincoln" or "J. Smith".
+        return bool(re.fullmatch(r'[a-z]', base))
+
     def _chunk_text(self, text, max_chars=None):
+        """
+        Chunk text into sentence-aligned pieces of at most max_chars.
+
+        Boundaries are detected abbreviation- and decimal-aware, so "Mr. Walt",
+        "U.S. policy" and "3.5 billion" are never split. Mid-sentence breaks
+        only happen as a last resort for very long sentences. Chunks stay small
+        enough that OmniVoice renders each one as a single continuous piece
+        instead of internally re-splitting it (which caused audible seams).
+        """
         import re
         if max_chars is None:
             max_chars = self.chunk_size
-        sentences = re.split(r'(?<=[.?!])\s+', text)
+        text = re.sub(r'\r', '', text)
+        text = re.sub(r'\n+', ' ', text)
+        text = re.sub(r'[ \t]+', ' ', text).strip()
+        text = self._normalize_numbers_for_tts(text)
+
+        sentences = self._split_sentences(text)
         chunks = []
         curr = ""
         for s in sentences:
+            s = s.strip()
+            if not s:
+                continue
             if len(s) > max_chars:
                 if curr:
                     chunks.append(curr.strip())
@@ -898,7 +1005,7 @@ class AudioEngine:
                 curr = s + " "
         if curr:
             chunks.append(curr.strip())
-        return chunks
+        return [c for c in chunks if c.strip()]
 
     def _create_m4b_with_chapters(self, chapter_audio_files, chapters_info, output_path, book_title=None, artist=None):
         from pydub import AudioSegment
