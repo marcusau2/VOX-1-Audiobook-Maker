@@ -39,7 +39,17 @@ class Vox1App(ctk.CTk):
         self.booksmith_data = None  # Stores BookData object from BookSmith
         self.chapter_checkboxes = []  # List of chapter checkbox widgets
         self.chapter_var_list = []  # List of BooleanVars for checkboxes
+        self.chapter_music_dropdown_vars = []  # List of StringVars for per-chapter music track
         self.current_preview_chapter_idx = None  # Track which chapter is being previewed
+
+        # Background music state
+        self.bg_music_enabled = False
+        self.bg_music_tracks = []           # list of file paths
+        self.bg_music_track_widgets = []    # list of (label, remove_btn) tuples
+        self.bg_music_mode = "simple"       # "simple" or "per_chapter"
+        self.bg_music_volume_db = -25
+        self.bg_music_fade_ms = 3000
+        self.bg_music_chapter_map = {}      # chapter_idx → track_idx (populated by BookSmith)
         
         self.settings_file = "user_settings.json"
         self.settings = self._load_settings()
@@ -64,6 +74,13 @@ class Vox1App(ctk.CTk):
             "show_timing": True,
             "debug_mode": False,
             "smart_import": True,
+            # Background music
+            "bg_music_enabled": False,
+            "bg_music_tracks": [],
+            "bg_music_mode": "simple",
+            "bg_music_volume_db": -25,
+            "bg_music_fade_ms": 3000,
+            "bg_music_random": False,
         }
 
     def _save_settings(self):
@@ -87,17 +104,35 @@ class Vox1App(ctk.CTk):
                 self.settings["debug_mode"] = self.debug_mode_var.get()
             if hasattr(self, 'smart_import_var'):
                 self.settings["smart_import"] = self.smart_import_var.get()
+            # Background music
+            self.settings["bg_music_enabled"] = self.bg_music_enabled
+            self.settings["bg_music_tracks"] = self.bg_music_tracks
+            self.settings["bg_music_mode"] = self.bg_music_mode
+            self.settings["bg_music_volume_db"] = self.bg_music_volume_db
+            self.settings["bg_music_fade_ms"] = self.bg_music_fade_ms
+            self.settings["bg_music_random"] = self.bg_random_var.get() if hasattr(self, 'bg_random_var') else False
             with open(self.settings_file, 'w') as f: json.dump(self.settings, f, indent=2)
         except: pass
 
     def _init_from_settings(self):
         self._start_engine_thread()
 
+        # Restore background music settings
+        self.bg_music_enabled = self.settings.get("bg_music_enabled", False)
+        self.bg_music_tracks = [t for t in self.settings.get("bg_music_tracks", []) if os.path.exists(t)]
+        self.bg_music_mode = self.settings.get("bg_music_mode", "simple")
+        self.bg_music_volume_db = self.settings.get("bg_music_volume_db", -25)
+        self.bg_music_fade_ms = self.settings.get("bg_music_fade_ms", 3000)
+        self.bg_music_random = self.settings.get("bg_music_random", False)
+
         last_voice = self.settings.get("last_voice")
         if last_voice and os.path.exists(last_voice):
             self.master_voice_path = last_voice
             self.studio_status.configure(text="Master Voice: LOADED", text_color="green")
             self.log(f"Restored previous voice: {os.path.basename(last_voice)}")
+
+        # Restore background music UI after a short delay (widgets need to exist)
+        self.after(100, self._update_bg_music_ui_from_state)
 
         smart_import_enabled = self.settings.get("smart_import", True)
         self.smart_import_var.set(smart_import_enabled)
@@ -464,7 +499,124 @@ class Vox1App(ctk.CTk):
         self.book_label.pack(pady=5)
         self.book_info_label = ctk.CTkLabel(self.content_frame, text="", text_color="gray", font=("Roboto", 11))
         self.book_info_label.pack(pady=2)
-        
+
+        # ========== Background Music Section ==========
+        self.bg_music_separator = ctk.CTkFrame(self.content_frame, height=2, fg_color="gray30")
+        self.bg_music_separator.pack(fill="x", padx=20, pady=(20, 5))
+
+        self.bg_music_header_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.bg_music_header_frame.pack(fill="x", padx=10, pady=(5, 0))
+
+        self.bg_music_enabled_var = ctk.BooleanVar(value=self.bg_music_enabled)
+        self.bg_music_checkbox = ctk.CTkCheckBox(
+            self.bg_music_header_frame,
+            text="🎵 Background Music  (experimental)",
+            variable=self.bg_music_enabled_var,
+            font=("Roboto", 13, "bold"),
+            command=self._toggle_bg_music_ui
+        )
+        self.bg_music_checkbox.pack(side="left", padx=10, pady=5)
+
+        # Background Music controls (hidden by default until enabled)
+        self.bg_music_frame = ctk.CTkFrame(self.content_frame, fg_color="#2a2a2a", corner_radius=8)
+
+        # Mode selection
+        mode_row = ctk.CTkFrame(self.bg_music_frame, fg_color="transparent")
+        mode_row.pack(fill="x", padx=15, pady=(10, 5))
+
+        self.bg_music_mode_var = ctk.StringVar(value=self.bg_music_mode)
+        ctk.CTkLabel(mode_row, text="Mode:", font=("Roboto", 12)).pack(side="left", padx=(0, 10))
+        self.bg_simple_radio = ctk.CTkRadioButton(
+            mode_row, text="Simple Additive (auto-cycle)",
+            variable=self.bg_music_mode_var, value="simple",
+            command=self._update_bg_music_mode
+        )
+        self.bg_simple_radio.pack(side="left", padx=5)
+        self.bg_perchapter_radio = ctk.CTkRadioButton(
+            mode_row, text="Per-Chapter",
+            variable=self.bg_music_mode_var, value="per_chapter",
+            command=self._update_bg_music_mode
+        )
+        self.bg_perchapter_radio.pack(side="left", padx=5)
+
+        # Mode info label
+        self.bg_mode_info = ctk.CTkLabel(
+            self.bg_music_frame,
+            text="Simple: tracks cycle through chapters automatically.  Per-Chapter: assign tracks in BookSmith tab.",
+            font=("Roboto", 10),
+            text_color="gray",
+            wraplength=600,
+            justify="left"
+        )
+        self.bg_mode_info.pack(fill="x", padx=15, pady=(0, 5))
+
+        # Random toggle (only applies in simple mode)
+        self.bg_random_var = ctk.BooleanVar(value=False)
+        self.bg_random_checkbox = ctk.CTkCheckBox(
+            self.bg_music_frame,
+            text="Random (pick a different track each chapter, no repeats)",
+            variable=self.bg_random_var,
+            font=("Roboto", 11)
+        )
+        self.bg_random_checkbox.pack(anchor="w", padx=15, pady=(0, 5))
+
+        # Track file management
+        self.bg_tracks_frame = ctk.CTkFrame(self.bg_music_frame, fg_color="transparent")
+        self.bg_tracks_frame.pack(fill="x", padx=15, pady=5)
+
+        self.bg_add_tracks_btn = ctk.CTkButton(
+            self.bg_tracks_frame,
+            text="+ Add Music Files",
+            command=self._add_bg_music_tracks,
+            width=140
+        )
+        self.bg_add_tracks_btn.pack(side="left", padx=5)
+
+        self.bg_tracks_label = ctk.CTkLabel(
+            self.bg_tracks_frame,
+            text="No music files loaded",
+            font=("Roboto", 11),
+            text_color="gray"
+        )
+        self.bg_tracks_label.pack(side="left", padx=10)
+
+        # Track list (dynamic)
+        self.bg_track_list_frame = ctk.CTkFrame(self.bg_music_frame, fg_color="transparent")
+        self.bg_track_list_frame.pack(fill="x", padx=25, pady=5)
+
+        # Volume slider
+        vol_row = ctk.CTkFrame(self.bg_music_frame, fg_color="transparent")
+        vol_row.pack(fill="x", padx=15, pady=5)
+
+        ctk.CTkLabel(vol_row, text="Volume:", font=("Roboto", 12)).pack(side="left", padx=(0, 10))
+        self.bg_volume_var = ctk.DoubleVar(value=abs(self.bg_music_volume_db))
+        self.bg_volume_slider = ctk.CTkSlider(
+            vol_row, from_=10, to=40, number_of_steps=30,
+            variable=self.bg_volume_var, command=self._update_bg_volume_label
+        )
+        self.bg_volume_slider.pack(side="left", fill="x", expand=True, padx=5)
+        self.bg_volume_label = ctk.CTkLabel(vol_row, text=f"-{self.bg_volume_var.get():.0f} dB", font=("Roboto", 12), width=60)
+        self.bg_volume_label.pack(side="left", padx=5)
+
+        # Fade slider
+        fade_row = ctk.CTkFrame(self.bg_music_frame, fg_color="transparent")
+        fade_row.pack(fill="x", padx=15, pady=(5, 10))
+
+        ctk.CTkLabel(fade_row, text="Crossfade:", font=("Roboto", 12)).pack(side="left", padx=(0, 10))
+        self.bg_fade_var = ctk.DoubleVar(value=self.bg_music_fade_ms / 1000)
+        self.bg_fade_slider = ctk.CTkSlider(
+            fade_row, from_=0.5, to=10.0, number_of_steps=19,
+            variable=self.bg_fade_var, command=self._update_bg_fade_label
+        )
+        self.bg_fade_slider.pack(side="left", fill="x", expand=True, padx=5)
+        self.bg_fade_label = ctk.CTkLabel(fade_row, text=f"{self.bg_fade_var.get():.1f}s", font=("Roboto", 12), width=60)
+        self.bg_fade_label.pack(side="left", padx=5)
+
+        # Update track list display if any tracks were restored from settings
+        if self.bg_music_tracks:
+            self._refresh_bg_track_list()
+
+        # Render button
         self.render_btn = ctk.CTkButton(self.content_frame, text="Render Audiobook", command=self._render_book, state="disabled", height=50, font=("Roboto", 16))
         self.render_btn.pack(pady=30)
         self.open_output_btn = ctk.CTkButton(self.content_frame, text="Open Output Folder", command=self._open_output_folder, fg_color="#444444")
@@ -473,6 +625,10 @@ class Vox1App(ctk.CTk):
         self.progress_bar = ctk.CTkProgressBar(self.content_frame)
         self.progress_bar.pack(pady=10, padx=50, fill="x")
         self.progress_bar.set(0)
+
+        # If music was enabled from saved settings, show the frame
+        if self.bg_music_enabled:
+            self.bg_music_frame.pack(fill="x", padx=10, pady=5)
 
     def _setup_advanced_tab(self):
         """Setup the Advanced Settings tab with performance tuning options."""
@@ -998,6 +1154,144 @@ class Vox1App(ctk.CTk):
         if self.master_voice_path and book_ready and self.engine:
             self.render_btn.configure(state="normal")
 
+    # ========== Background Music Handlers ========== #
+
+    def _toggle_bg_music_ui(self):
+        """Show/hide background music controls when checkbox is toggled."""
+        if self.bg_music_enabled_var.get():
+            self.bg_music_frame.pack(fill="x", padx=10, pady=5)
+            self.bg_music_enabled = True
+        else:
+            self.bg_music_frame.pack_forget()
+            self.bg_music_enabled = False
+
+    def _add_bg_music_tracks(self):
+        """Open file dialog to add music tracks."""
+        paths = filedialog.askopenfilenames(
+            title="Select Background Music Files",
+            filetypes=[("Audio Files", "*.mp3 *.wav *.flac *.ogg *.m4a")]
+        )
+        if not paths:
+            return
+
+        for p in paths:
+            if p not in self.bg_music_tracks:
+                self.bg_music_tracks.append(p)
+
+        self._refresh_bg_track_list()
+        self.log(f"Added {len(paths)} background music track(s)")
+
+    def _remove_bg_music_track(self, index):
+        """Remove a music track by index."""
+        if 0 <= index < len(self.bg_music_tracks):
+            removed = os.path.basename(self.bg_music_tracks.pop(index))
+            self._refresh_bg_track_list()
+            self.log(f"Removed track: {removed}")
+
+    def _refresh_bg_track_list(self):
+        """Refresh the track list UI widgets."""
+        # Clear old widgets
+        for widget in self.bg_track_list_frame.winfo_children():
+            widget.destroy()
+        self.bg_music_track_widgets = []
+
+        if not self.bg_music_tracks:
+            self.bg_tracks_label.configure(text="No music files loaded")
+            return
+
+        self.bg_tracks_label.configure(text=f"{len(self.bg_music_tracks)} track(s) loaded")
+
+        for idx, track_path in enumerate(self.bg_music_tracks):
+            row = ctk.CTkFrame(self.bg_track_list_frame, fg_color="transparent")
+            row.pack(fill="x", pady=1)
+
+            num_label = ctk.CTkLabel(row, text=f"{idx + 1}.", font=("Roboto", 11), width=25)
+            num_label.pack(side="left")
+
+            name_label = ctk.CTkLabel(
+                row,
+                text=os.path.basename(track_path),
+                font=("Roboto", 11),
+                anchor="w"
+            )
+            name_label.pack(side="left", fill="x", expand=True, padx=5)
+
+            remove_btn = ctk.CTkButton(
+                row,
+                text="×",
+                width=28,
+                height=22,
+                fg_color="#cc4444",
+                hover_color="#aa2222",
+                font=("Roboto", 14, "bold"),
+                command=lambda i=idx: self._remove_bg_music_track(i)
+            )
+            remove_btn.pack(side="right")
+
+            self.bg_music_track_widgets.append((name_label, remove_btn))
+
+        # Refresh BookSmith chapter dropdowns if in per-chapter mode
+        if self.bg_music_mode_var.get() == "per_chapter" and self.booksmith_data:
+            self._display_booksmith_chapters(self.booksmith_data)
+
+    def _update_bg_music_mode(self):
+        """Called when mode radio buttons change."""
+        self.bg_music_mode = self.bg_music_mode_var.get()
+        if self.bg_music_mode == "per_chapter":
+            self.bg_mode_info.configure(
+                text="Per-Chapter: assign tracks in BookSmith tab after loading a book. Each chapter gets its own track picker."
+            )
+        else:
+            self.bg_mode_info.configure(
+                text="Simple: tracks play in order (or random if checked). Per-Chapter: assign tracks in BookSmith tab."
+            )
+        # Show/hide random checkbox based on mode
+        if self.bg_music_mode == "simple":
+            self.bg_random_checkbox.pack(anchor="w", padx=15, pady=(0, 5))
+        else:
+            self.bg_random_checkbox.pack_forget()
+        # Refresh BookSmith chapter dropdowns if book is loaded
+        if self.booksmith_data:
+            self._display_booksmith_chapters(self.booksmith_data)
+
+    def _update_bg_volume_label(self, value):
+        """Update the volume label when slider moves."""
+        self.bg_volume_label.configure(text=f"-{float(value):.0f} dB")
+        self.bg_music_volume_db = -int(float(value))
+
+    def _update_bg_fade_label(self, value):
+        """Update the fade label when slider moves."""
+        self.bg_fade_label.configure(text=f"{float(value):.1f}s")
+        self.bg_music_fade_ms = int(float(value) * 1000)
+
+    def _update_bg_music_ui_from_state(self):
+        """Sync UI widgets with current state (used after loading settings)."""
+        self.bg_music_enabled_var.set(self.bg_music_enabled)
+        self.bg_music_mode_var.set(self.bg_music_mode)
+        self.bg_volume_var.set(abs(self.bg_music_volume_db))
+        self.bg_volume_label.configure(text=f"-{abs(self.bg_music_volume_db):.0f} dB")
+        self.bg_fade_var.set(self.bg_music_fade_ms / 1000)
+        self.bg_fade_label.configure(text=f"{self.bg_music_fade_ms / 1000:.1f}s")
+        if hasattr(self, 'bg_random_var'):
+            self.bg_random_var.set(self.bg_music_random)
+        if self.bg_music_enabled:
+            self.bg_music_frame.pack(fill="x", padx=10, pady=5)
+        self._refresh_bg_track_list()
+
+    def _apply_bg_music_to_engine(self):
+        """Push current UI settings to the engine."""
+        if not self.engine:
+            return
+        self.engine.set_background_music(
+            enabled=self.bg_music_enabled_var.get(),
+            tracks=self.bg_music_tracks,
+            mode=self.bg_music_mode_var.get(),
+            chapter_map=self.bg_music_chapter_map,
+            volume_db=-int(self.bg_volume_var.get()),
+            fade_ms=int(self.bg_fade_var.get() * 1000),
+            randomize=self.bg_random_var.get(),
+        )
+
     def _render_book(self):
         if self.is_rendering:
             # STOP COMMAND
@@ -1012,7 +1306,12 @@ class Vox1App(ctk.CTk):
         
         # Save settings on start
         self._save_settings()
-        
+
+        # Push background music settings to engine
+        self._apply_bg_music_to_engine()
+        if self.bg_music_enabled_var.get() and self.bg_music_tracks:
+            self.log(f"Background music enabled: {self.bg_music_mode_var.get()} mode, {len(self.bg_music_tracks)} track(s)")
+
         self.status_bar.configure(text="Rendering...")
         self.progress_bar.set(0)
         def progress(p): self.after(0, lambda: self.progress_bar.set(p))
@@ -1065,9 +1364,6 @@ class Vox1App(ctk.CTk):
                 self.after(0, lambda: self.render_btn.configure(state="normal", text="Render Audiobook", fg_color=["#3B8ED0", "#1F6AA5"], hover_color=["#36719F", "#144870"]))
 
         threading.Thread(target=run, daemon=True).start()
-
-    def _open_output_folder(self):
-        if self.engine: os.startfile(self.engine.output_dir)
 
     # ========== BookSmith Tab Handlers ========== #
 
@@ -1131,6 +1427,7 @@ class Vox1App(ctk.CTk):
 
             self.chapter_checkboxes = []
             self.chapter_var_list = []
+            self.chapter_music_dropdown_vars = []
 
             if not book_data.chapters:
                 error_label = ctk.CTkLabel(
@@ -1188,6 +1485,40 @@ class Vox1App(ctk.CTk):
                 )
                 word_label.pack(side="right", padx=15, pady=5)
 
+                # Music track dropdown (per-chapter mode)
+                show_music = (
+                    hasattr(self, 'bg_music_enabled_var')
+                    and self.bg_music_enabled_var.get()
+                    and self.bg_music_mode_var.get() == "per_chapter"
+                    and self.bg_music_tracks
+                )
+                if show_music:
+                    track_options = [os.path.basename(t) for t in self.bg_music_tracks]
+                    # Default to cycling track
+                    default_track = track_options[i % len(track_options)]
+
+                    track_var = tk.StringVar(value=default_track)
+                    self.chapter_music_dropdown_vars.append(track_var)
+
+                    track_dropdown = ctk.CTkOptionMenu(
+                        frame,
+                        values=track_options,
+                        variable=track_var,
+                        width=140,
+                        font=("Roboto", 10),
+                        command=lambda choice, idx=i: self._on_chapter_track_change(idx, choice)
+                    )
+                    track_dropdown.pack(side="right", padx=(5, 5), pady=5)
+
+                    music_label = ctk.CTkLabel(
+                        frame,
+                        text="🎵",
+                        font=("Roboto", 12),
+                        width=20
+                    )
+                    music_label.pack(side="right", padx=(5, 0), pady=5)
+
+
             # Enable controls
             self.select_all_btn.configure(state="normal")
             self.deselect_all_btn.configure(state="normal")
@@ -1204,6 +1535,17 @@ class Vox1App(ctk.CTk):
         """Update chapter enabled state when checkbox is toggled."""
         if self.booksmith_data and chapter_idx < len(self.booksmith_data.chapters):
             self.booksmith_data.chapters[chapter_idx].enabled = self.chapter_var_list[chapter_idx].get()
+
+    def _on_chapter_track_change(self, chapter_idx, choice):
+        """Called when a per-chapter music track dropdown changes."""
+        if not self.bg_music_tracks:
+            return
+        # Find which track index matches the chosen filename
+        chosen_basename = choice
+        for track_idx, track_path in enumerate(self.bg_music_tracks):
+            if os.path.basename(track_path) == chosen_basename:
+                self.bg_music_chapter_map[chapter_idx] = track_idx
+                break
 
     def _show_chapter_preview(self, chapter_idx):
         """Show chapter text in preview pane for editing."""
@@ -1334,6 +1676,22 @@ class Vox1App(ctk.CTk):
             return
 
         self.log(f"Processing {enabled_count} selected chapters...")
+
+        # Include per-chapter music track mapping in manifest
+        if (
+            self.bg_music_enabled_var.get()
+            and self.bg_music_mode_var.get() == "per_chapter"
+            and self.bg_music_tracks
+            and self.chapter_music_dropdown_vars
+        ):
+            for ch_idx, ch_data in enumerate(self.booksmith_data.chapters):
+                if ch_idx < len(self.chapter_music_dropdown_vars) and ch_data.enabled:
+                    chosen_basename = self.chapter_music_dropdown_vars[ch_idx].get()
+                    for track_idx, track_path in enumerate(self.bg_music_tracks):
+                        if os.path.basename(track_path) == chosen_basename:
+                            self.bg_music_chapter_map[ch_idx] = track_idx
+                            break
+            self.log(f"Per-chapter music mapping: {len(self.bg_music_chapter_map)} chapters assigned")
 
         # Generate manifest from enabled chapters
         manifest = self.booksmith_data.to_manifest()

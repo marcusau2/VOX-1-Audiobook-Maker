@@ -7,6 +7,11 @@ echo ============================================
 echo.
 cd /d "%~dp0"
 
+:: Isolate from any inherited PYTHONPATH (e.g. other Python venvs on this
+:: machine) so the app always uses Python's own site-packages. The backend
+:: also self-sanitizes, this is defense in depth.
+set PYTHONPATH=
+
 echo Checking Python environment...
 if exist "system_python\python.exe" (
     echo [OK] Python found in system_python
