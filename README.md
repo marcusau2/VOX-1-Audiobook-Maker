@@ -41,7 +41,9 @@ Or double-click `RUN-VOX-1.bat`.
 
 ### First Run
 
-On first launch, the OmniVoice model (~3.5 GB) downloads automatically from HuggingFace to the `models/` directory. This is a one-time download — subsequent launches load instantly from cache.
+On first launch, the OmniVoice model (~3.5 GB) downloads automatically from HuggingFace to the `models/` directory. **This is a one-time download** — subsequent launches load instantly from the local cache with no network access, and the app reports `OmniVoice model found in local cache`.
+
+The app disables HuggingFace's experimental Xet storage backend (which could re-download blobs on every start) so that downloaded models persist and are reused across launches.
 
 ---
 

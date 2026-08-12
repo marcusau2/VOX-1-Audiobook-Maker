@@ -1,5 +1,35 @@
 import os
 import sys
+
+# --- Path hygiene -----------------------------------------------------------
+# When launched from a shell that inherited PYTHONPATH (e.g. a Hermes agent
+# venv, or any other interpreter's site-packages), a foreign numpy/torch can
+# shadow this app's own install and crash at import with errors like
+# 'No module named numpy._core._multiarray_umath' (cp311 ABI on a cp312
+# interpreter). Neutralize external path pollution BEFORE importing anything
+# that links against numpy. We only sanitize for the VOX-1 app itself; other
+# programs are unaffected.
+def _sanitize_python_path():
+    try:
+        import site
+        own_site = [p for p in site.getsitepackages() if p]
+    except Exception:
+        own_site = []
+    if not own_site:
+        own_site = [os.path.join(sys.prefix, 'Lib', 'site-packages')]
+    # Keep sys.path[0] (script dir / cwd) intact; move our own site-packages
+    # to the front, ahead of any inherited foreign site-packages. Everything
+    # else stays where it was.
+    for p in own_site:
+        if p in sys.path:
+            sys.path.remove(p)
+        sys.path.insert(1, p)
+    # Also clear PYTHONPATH so child processes (ffmpeg, subprocess) inherit a
+    # clean environment.
+    os.environ.pop('PYTHONPATH', None)
+
+_sanitize_python_path()
+
 import torch
 import soundfile as sf
 import traceback
@@ -10,6 +40,7 @@ import gc
 import subprocess
 import json
 import hashlib
+import random
 import warnings
 
 # Suppress noisy Whisper/transformers deprecation warnings
@@ -166,6 +197,17 @@ class AudioEngine:
         self.class_temperature = class_temperature
         self.speed = speed
 
+        # Background music state
+        self.bg_music_enabled = False
+        self.bg_music_tracks = []          # list of file paths
+        self.bg_music_mode = "simple"       # "simple" or "per_chapter"
+        self.bg_music_chapter_map = {}      # chapter_idx → track_idx (per_chapter mode)
+        self.bg_music_volume_db = -25       # reduction in dB (negative = quieter)
+        self.bg_music_fade_ms = 3000        # fade in/out duration
+        self.bg_music_random = False        # random track selection (simple mode)
+        self._bg_music_last_track_idx = None  # last random track to avoid immediate repeat
+        self._bg_music_cache = {}           # path → AudioSegment
+
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.log(f"Initializing AudioEngine on {self.device}...")
 
@@ -188,6 +230,11 @@ class AudioEngine:
         os.environ['TRANSFORMERS_CACHE'] = self.models_dir
         os.environ['HF_HUB_CACHE'] = self.models_dir
         os.environ['XDG_CACHE_HOME'] = self.models_dir
+        # Opt out of HuggingFace Hub's Xet storage backend. Xet stores blobs as
+        # .incomplete files and re-fetches them on every launch instead of
+        # trusting the local cache, which reads as "re-downloads every time".
+        # Classic (non-Xet) caching downloads each file once and reuses it.
+        os.environ['HF_HUB_DISABLE_XET'] = '1'
         self.log(f"Models will be cached to: {self.models_dir}")
 
         self._setup_ffmpeg()
@@ -236,7 +283,15 @@ class AudioEngine:
             self.log("WARNING: ffmpeg not found (neither system nor bundled)")
 
     def _load_model(self):
-        self.log("Loading OmniVoice model (k2-fsa/OmniVoice)...")
+        model_id = "k2-fsa/OmniVoice"
+        # Check whether the model is already present in the local cache BEFORE
+        # calling from_pretrained, so we can report cache-hit vs. fresh
+        # download and avoid the impression of re-downloading.
+        cached = self._model_is_cached(model_id)
+        if cached:
+            self.log(f"OmniVoice model found in local cache — loading without network access...")
+        else:
+            self.log(f"OmniVoice model not in cache — downloading from HuggingFace ({model_id})...")
         try:
             dtype_config = torch.float16
             if self.device == "cuda":
@@ -251,7 +306,7 @@ class AudioEngine:
                     self.log("Could not detect GPU arch, defaulting to float16")
 
             self.model = OmniVoice.from_pretrained(
-                "k2-fsa/OmniVoice",
+                model_id,
                 device_map=f"{self.device}:0" if self.device != "cpu" else self.device,
                 dtype=dtype_config,
                 load_asr=True,
@@ -263,6 +318,28 @@ class AudioEngine:
             self.log(traceback.format_exc())
             raise
 
+    def _model_is_cached(self, model_id):
+        """Return True if the repo appears fully present in the local HF cache."""
+        try:
+            from huggingface_hub import scan_cache_dir
+            cache = scan_cache_dir(self.models_dir)
+            for repo in cache.repos:
+                if repo.repo_id == model_id and repo.repo_type == "model" and repo.refs:
+                    return True
+        except Exception:
+            pass
+        # Fallback: a resolved snapshot with the weights present.
+        base = os.path.join(
+            self.models_dir, f"models--{model_id.replace('/', '--')}", "snapshots"
+        )
+        if not os.path.isdir(base):
+            return False
+        for name in sorted(os.listdir(base)):
+            p = os.path.join(base, name)
+            if os.path.isdir(p) and os.path.exists(os.path.join(p, "model.safetensors")):
+                return True
+        return False
+
     def _unload_model(self):
         if self.model is not None:
             del self.model
@@ -271,6 +348,178 @@ class AudioEngine:
             if self.device == "cuda":
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()
+
+    # -------------------------------------------------------------------
+    # Background Music
+    # -------------------------------------------------------------------
+
+    def set_background_music(self, enabled=False, tracks=None, mode="simple",
+                              chapter_map=None, volume_db=-25, fade_ms=3000,
+                              randomize=False):
+        """
+        Configure background music for rendering.
+
+        Args:
+            enabled: whether to mix in background music
+            tracks: list of file paths to music tracks
+            mode: "simple" (cycle through tracks) or "per_chapter" (use chapter_map)
+            chapter_map: dict of chapter_idx → track_idx
+            volume_db: volume reduction in dB (negative, e.g. -25)
+            fade_ms: fade in/out duration in milliseconds
+            randomize: random track selection (no immediate repeat)
+        """
+        self.bg_music_enabled = enabled
+        if tracks is not None:
+            self.bg_music_tracks = list(tracks)
+            # Clear cache when tracks change
+            self._bg_music_cache.clear()
+        self.bg_music_mode = mode
+        if chapter_map is not None:
+            self.bg_music_chapter_map = dict(chapter_map)
+        self.bg_music_volume_db = volume_db
+        self.bg_music_fade_ms = fade_ms
+        self.bg_music_random = randomize
+        if not randomize:
+            self._bg_music_last_track_idx = None
+
+    def _get_music_track(self, chapter_idx):
+        """Determine starting track index for a chapter (per-chapter mode only)."""
+        if not self.bg_music_tracks:
+            return None
+        if self.bg_music_mode == "per_chapter":
+            return self.bg_music_chapter_map.get(chapter_idx, chapter_idx % len(self.bg_music_tracks))
+        # For non-per-chapter modes, the starting track is determined during mixing
+        return None
+
+    def _pick_random_track(self):
+        """Pick a random track index, avoiding immediate repeat of the last one."""
+        if not self.bg_music_tracks:
+            return None
+        if len(self.bg_music_tracks) == 1:
+            return 0
+        candidates = list(range(len(self.bg_music_tracks)))
+        if self._bg_music_last_track_idx is not None and len(candidates) > 1:
+            candidates.remove(self._bg_music_last_track_idx)
+        chosen = random.choice(candidates)
+        self._bg_music_last_track_idx = chosen
+        return chosen
+
+    def _pick_sequential_track(self):
+        """Pick the next track in sequence, wrapping around."""
+        if not self.bg_music_tracks:
+            return None
+        if self._bg_music_last_track_idx is None:
+            chosen = 0
+        else:
+            chosen = (self._bg_music_last_track_idx + 1) % len(self.bg_music_tracks)
+        self._bg_music_last_track_idx = chosen
+        return chosen
+
+    def _load_music_segment(self, track_path):
+        """Load a music file, caching the AudioSegment."""
+        if track_path not in self._bg_music_cache:
+            from pydub import AudioSegment
+            seg = AudioSegment.from_file(track_path)
+            if seg.channels > 1:
+                seg = seg.set_channels(1)
+            self._bg_music_cache[track_path] = seg
+        return self._bg_music_cache[track_path]
+
+    def _build_music_playlist(self, chapter_duration_ms, chapter_idx=0):
+        """
+        Build a list of (AudioSegment, is_last) for the music to fill chapter_duration_ms.
+        Tracks play through naturally — when one ends, the next begins.
+        """
+        from pydub import AudioSegment
+        playlist_segments = []
+        remaining = chapter_duration_ms
+
+        while remaining > 0:
+            # Determine which track to play next
+            if self.bg_music_mode == "per_chapter":
+                track_idx = self._get_music_track(chapter_idx)
+                if track_idx is None:
+                    break
+            elif self.bg_music_random:
+                track_idx = self._pick_random_track()
+            else:
+                track_idx = self._pick_sequential_track()
+
+            if track_idx is None or track_idx >= len(self.bg_music_tracks):
+                break
+
+            track_path = self.bg_music_tracks[track_idx]
+            if not os.path.exists(track_path):
+                self.log(f"Music file not found: {track_path}")
+                continue
+
+            try:
+                seg = self._load_music_segment(track_path)
+                # Apply volume reduction
+                seg = seg + self.bg_music_volume_db
+
+                if len(seg) <= remaining:
+                    # Full track fits
+                    playlist_segments.append(seg)
+                    remaining -= len(seg)
+                else:
+                    # Last partial track
+                    trimmed = seg[:remaining]
+                    playlist_segments.append(trimmed)
+                    remaining = 0
+            except Exception as e:
+                self.log(f"Error loading music track: {e}")
+                continue
+
+        return playlist_segments
+
+    def _apply_background_music(self, audio_segment, chapter_idx=0):
+        """
+        Mix background music into the given audio segment.
+        Builds a playlist of full tracks that play through naturally.
+        When a track ends, the next random/sequential track begins.
+        Returns the mixed AudioSegment (or original if music is disabled).
+        """
+        if not self.bg_music_enabled or not self.bg_music_tracks:
+            return audio_segment
+
+        try:
+            chapter_duration = len(audio_segment)
+            if chapter_duration < 100:  # Skip if chapter is tiny
+                return audio_segment
+
+            segments = self._build_music_playlist(chapter_duration, chapter_idx)
+            if not segments:
+                return audio_segment
+
+            # Concatenate segments with crossfade between tracks
+            crossfade_ms = min(500, chapter_duration // 4)
+            if len(segments) == 1:
+                music = segments[0]
+            else:
+                music = segments[0]
+                for seg in segments[1:]:
+                    cf = min(crossfade_ms, len(music), len(seg))
+                    music = music.append(seg, crossfade=cf)
+
+            # Ensure exact length match
+            if len(music) > chapter_duration:
+                music = music[:chapter_duration]
+            elif len(music) < chapter_duration:
+                from pydub import AudioSegment
+                music = music + AudioSegment.silent(duration=chapter_duration - len(music))
+
+            # Apply chapter-level fade in/out
+            fade_ms = min(self.bg_music_fade_ms, chapter_duration // 2)
+            if fade_ms > 0:
+                music = music.fade_in(fade_ms).fade_out(fade_ms)
+
+            # Overlay
+            return audio_segment.overlay(music)
+
+        except Exception as e:
+            self.log(f"Error applying background music: {e}")
+            return audio_segment
 
     # -------------------------------------------------------------------
     # Voice Design
@@ -436,6 +685,9 @@ class AudioEngine:
                 processed_seg = seg.fade_in(50).fade_out(50)
                 final_audio += silence_gap + processed_seg
 
+            # Mix in background music (use first track for flat TXT renders)
+            final_audio = self._apply_background_music(final_audio, chapter_idx=0)
+
             out_path = os.path.join(self.output_dir, f"{original_book_name}_audiobook.mp3")
             final_audio.export(out_path, format="mp3")
             self.log(f"SUCCESS: Saved to {out_path}")
@@ -557,6 +809,9 @@ class AudioEngine:
                 for s in audio_segments[1:]:
                     processed_seg = s.fade_in(50).fade_out(50)
                     final += silence_gap + processed_seg
+
+                # Mix in background music for this chapter
+                final = self._apply_background_music(final, chapter_idx=chapter_idx)
 
                 fname = f"{chapter.get('id', chapter_idx + 1):02d}_{label}".replace(" ", "_") + ".wav"
                 out_path = os.path.join(book_output_dir, fname)
