@@ -12,5 +12,5 @@ EbookLib
 beautifulsoup4
 PyPDF2
 ftfy
-docling
+docling==2.91.0  # pinned: 2.92+ removed docling.document_converter API used by processors.py
 pymupdf

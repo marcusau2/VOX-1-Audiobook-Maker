@@ -12,9 +12,15 @@ import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
 
-# PDF processing
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+# PDF processing (Docling). Imported defensively so that EPUB processing
+# never breaks even if Docling is missing or misconfigured.
+try:
+    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    DOCLING_AVAILABLE = True
+except ImportError:
+    DocumentConverter = PdfFormatOption = PdfPipelineOptions = None
+    DOCLING_AVAILABLE = False
 import pymupdf  # For PDF bookmark/outline extraction
 
 from .core import BookData, Chapter, TextCleaner
@@ -125,6 +131,13 @@ class PDFProcessor:
         """
         book_data = BookData()
         book_data.source_file = file_path
+
+        if not DOCLING_AVAILABLE:
+            raise Exception(
+                "Docling is not installed or is an incompatible version. "
+                "PDF processing requires docling==2.91.0. "
+                "Run: pip install docling==2.91.0"
+            )
 
         # Initialize Docling converter (first time only)
         if PDFProcessor._converter is None:
