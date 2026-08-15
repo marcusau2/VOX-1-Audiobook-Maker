@@ -106,6 +106,16 @@ To clone an existing voice:
 | JSON manifest (.json) | M4B with chapter markers |
 | EPUB/PDF (via BookSmith) | M4B with chapter markers |
 
+### Background Music (The Studio tab)
+
+VOX-1 can mix background music into rendered audiobooks *(experimental)*:
+
+- Load one or more music files (MP3/WAV) in the Studio tab
+- **Simple mode** — tracks play sequentially (or randomly, with no immediate repeats) and continue across the book
+- **Per-chapter mode** — assign specific music tracks to individual chapters
+- Adjust music volume (default −25 dB), chapter fade in/out duration, and track crossfade
+- Music is mixed beneath the narration and baked into the final audiobook export
+
 ---
 
 ## ⚙️ Performance & Advanced Settings
@@ -114,8 +124,9 @@ OmniVoice is a diffusion model — non-autoregressive, no looping, no CUDA graph
 
 | Setting | Range | Default | Description |
 |---------|-------|---------|-------------|
-| Batch Size | 1–64 | 2 | Text chunks processed simultaneously on GPU |
-| Chunk Size | 100–5000 | 500 | Max characters per text segment |
+| Batch Size | 1–64 | 10 | Text chunks processed simultaneously on GPU |
+| Chunk Size | 100–5000 | 250 | Max characters per text segment (250 keeps each chunk under OmniVoice's internal 30s re-split threshold for smooth output) |
+| Speaking Speed | 0.5–2.0 | 1.0 | Speed of generated speech — applies to voice design, cloning, and render |
 | Guidance Scale | 1.0–4.0 | 2.0 | How closely generated speech matches the reference |
 | Diffusion Steps | 8–64 | 32 | Iterative refinement steps (lower = faster, higher = better quality) |
 
@@ -190,4 +201,4 @@ Apache License 2.0
 
 ---
 
-**Last Updated:** June 2026
+**Last Updated:** August 2026
